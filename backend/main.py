@@ -84,13 +84,20 @@ _origins_from_settings: list[str] = (
     else [o.strip() for o in str(settings.allowed_origins_list).split(",") if o.strip()]
 )
 
-_dev_origins: list[str] = [
+_dev_origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:8080",
+
+    "https://localhost:5173",
+    "https://127.0.0.1:5173",
+
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:8080",
+
+    "http://10.113.129.47:5173",
+    "https://10.113.129.47:5173",
 ]
 
 # Deduplicate while preserving order
@@ -98,14 +105,22 @@ _all_origins: list[str] = list(dict.fromkeys(_origins_from_settings + _dev_origi
 
 logger.info("CORS allowed origins: %s", _all_origins)
 
+##app.add_middleware(
+    #CORSMiddleware,
+    #allow_origins=[" *"],  # allow all origins for development; restrict in production
+    #allow_credentials=True,
+    #allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],  # explicit > wildcard
+    #allow_headers=["*"],
+    #expose_headers=["Content-Length", "X-Request-ID"],
+    #max_age=600,  # preflight cache 10 min — reduces OPTIONS round-trips
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_all_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],  # explicit > wildcard
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["Content-Length", "X-Request-ID"],
-    max_age=600,  # preflight cache 10 min — reduces OPTIONS round-trips
 )
 
 

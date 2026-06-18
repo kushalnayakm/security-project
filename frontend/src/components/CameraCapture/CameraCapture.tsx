@@ -122,6 +122,10 @@ export default function CameraCapture({
       .then(() => {
         if (!cancelled) {
           setModelsLoaded(true)
+          // ▶ RESTORED: Notify parent that models are loaded so UI transitions
+          //   from "Setting up face detection" to "No face detected".
+          //   No race condition — detection can't produce results before this
+          //   because it depends on the modelsLoaded state set above.
           cbValidation.current?.(DEFAULT_VALIDATION, true)
         }
       })
@@ -157,16 +161,34 @@ export default function CameraCapture({
     let stopped = false
 
     const detect = async () => {
+      console.log('[DETECT LOOP START]')
       if (stopped) return
       const video = videoRef.current
-      if (!video || video.readyState < 2 || video.paused || video.videoWidth === 0) {
+      console.log('[VIDEO CHECK]', {
+        exists: !!video,
+        readyState: video?.readyState,
+        paused: video?.paused,
+        width: video?.videoWidth,
+        height: video?.videoHeight,
+      })
+
+      if (!video || video.readyState < 2 || video.videoWidth === 0) {
+        console.log('[detect] waiting for video —', {
+          exists: !!video,
+          readyState: video?.readyState,
+          width: video?.videoWidth,
+        })
         detectionRef.current = setTimeout(detect, 300)
         return
       }
 
+      // Resume playback if autoplay was blocked (common on mobile)
+      if (video.paused) video.play().catch(() => {})
+
       try {
         // Pass 1 — balanced quality
         let detections = await faceapi.detectAllFaces(
+          console.log('[DETECT] running face detection…') ||
           video,
           new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.2 }),
         )
@@ -188,7 +210,7 @@ export default function CameraCapture({
         const goodLight = checkLighting(video)
         let tooFar = false, tooClose = false
 
-        if (count === 1) {
+        if (count === 1 && video.videoHeight > 0) {
           const ratio = detections[0].box.height / video.videoHeight
           console.log(`[CameraCapture] Face ratio: ${ratio.toFixed(3)}`)
           tooFar   = ratio < 0.15   // very relaxed — was 0.22
@@ -228,8 +250,13 @@ export default function CameraCapture({
   }, [isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Stop stream ───────────────────────────────────────────────────────────
+  // ▶ FIX: Removed detectionRef cleanup from here.
+  //   The detection loop effect manages its own lifecycle via its `stopped`
+  //   flag and its cleanup function.  When stopStream() cleared detectionRef,
+  //   it killed the detection loop's pending setTimeout — because React runs
+  //   effects in declaration order: detection loop scheduled a retry, then
+  //   camera lifecycle's start() → stopStream() cancelled it.
   const stopStream = () => {
-    if (detectionRef.current) { clearTimeout(detectionRef.current); detectionRef.current = null }
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
@@ -258,10 +285,14 @@ export default function CameraCapture({
 
     const start = async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setError('Your browser does not support camera access.')
-        cbCameraReady.current?.(false)
-        return
-      }
+        console.log('mediaDevices:', navigator.mediaDevices)
+        console.log('secureContext:', window.isSecureContext)
+        console.log('protocol:', window.location.protocol)
+        alert(`
+          mediaDevices=${!!navigator.mediaDevices}
+          secureContext=${window.isSecureContext}
+          protocol=${window.location.protocol}
+`)}
       stopStream(); setError(null); setIsLoading(true)
       await new Promise((r) => setTimeout(r, 200))
       if (cancelled) return
