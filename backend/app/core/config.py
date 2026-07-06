@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     jwt_expiry_minutes: int = Field(default=60, alias="JWT_EXPIRY_MINUTES")
     customer_jwt_expiry_minutes: int = Field(default=30, alias="CUSTOMER_JWT_EXPIRY_MINUTES")
     cors_origins: list[str] = Field(default_factory=lambda: ["*"], alias="CORS_ORIGINS")
+    otp_expiry_seconds: int = Field(default=300, alias="OTP_EXPIRY_SECONDS")
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -108,7 +108,7 @@ CREATE TABLE audit_logs (
 );
 
 
--- =====================================================================
+CREATE UNIQUE INDEX idx_entities_phone_unique ON entities(phone) WHERE phone IS NOT NULL;
 CREATE INDEX idx_customers_entity_id       ON customers(entity_id);
 CREATE INDEX idx_customers_unique_id       ON customers(unique_id);
 CREATE INDEX idx_form_submissions_form_id  ON form_submissions(form_id);

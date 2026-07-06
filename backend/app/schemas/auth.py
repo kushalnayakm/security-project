@@ -4,13 +4,28 @@ from pydantic import BaseModel
 
 
 class AdminLoginRequest(BaseModel):
-    email: str
+    admin_id: str
     password: str
+
+
+class ForgotAdminIdRequest(BaseModel):
+    phone: str
 
 
 class EntityLoginRequest(BaseModel):
     email: str
     password: str
+
+
+class EntityOtpRequest(BaseModel):
+    gst_no: str
+    phone: str
+
+
+class EntityOtpVerifyRequest(BaseModel):
+    gst_no: str
+    phone: str
+    otp: str
 
 
 class CustomerLoginRequest(BaseModel):

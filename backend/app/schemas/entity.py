@@ -1,23 +1,29 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field
 
 from app.schemas.common import ORMModel
 
 
 class EntityCreate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str
-    gstNo: str | None = None
-    businessType: str | None = None
+    gstNo: str | None = Field(default=None, validation_alias=AliasChoices("gstNo", "gst_no"), serialization_alias="gstNo")
+    businessType: str | None = Field(default=None, validation_alias=AliasChoices("businessType", "business_type"), serialization_alias="businessType")
     address: str | None = None
-    contactPerson: str | None = None
+    contactPerson: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("contactPerson", "contact_person"),
+        serialization_alias="contactPerson",
+    )
     phone: str | None = None
     email: EmailStr | None = None
 
 
 class EntityRegisterRequest(EntityCreate):
-    password: str
+    pass
 
 
 class EntityUpdate(BaseModel):

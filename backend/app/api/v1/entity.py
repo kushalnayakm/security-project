@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,17 +11,26 @@ from app.models.form_field import FormField
 from app.models.form_submission import FormSubmission
 from app.schemas.entity import EntityRegisterRequest
 from app.schemas.forms import CertificateCreate, DynamicFormCreate, DynamicFormUpdate, PublishFormRequest
+from app.services.auth_service import AuthService
 from app.services.entity_service import EntityService
 from app.utils.responses import success_response
 
 
 router = APIRouter(prefix="/entity")
 entity_service = EntityService()
+auth_service = AuthService()
+logger = logging.getLogger(__name__)
 
 
-@router.post("/register", status_code=status.HTTP_501_NOT_IMPLEMENTED)
-async def register_entity(_: EntityRegisterRequest) -> dict:
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Entity registration needs a user email field in schema.sql.")
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+async def register_entity(payload: EntityRegisterRequest, session: AsyncSession = Depends(get_db)) -> dict:
+    logger.info("Request received for entity registration")
+    logger.info("Entity registration request model: %s", payload)
+    logger.info("Validation successful for entity registration")
+    logger.info("Entity registration password type: %s", type(payload.password).__name__)
+    logger.info("Entity registration password length: %s", len(payload.password))
+    result = await auth_service.register_entity(session, payload)
+    return success_response(result)
 
 
 @router.get("/forms", dependencies=[Depends(require_entity_staff)])
