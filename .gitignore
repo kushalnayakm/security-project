@@ -7,9 +7,9 @@ frontend/dist/
 frontend/.vite/
 
 # Backend
-backend/__pycache__/
+**/__pycache__/
 backend/*.pyc
-backend/.venv/
+.venv/
 backend/venv/
 backend/.env
 backend/.pytest_cache/
