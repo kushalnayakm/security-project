@@ -1,11 +1,22 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class AdminLoginRequest(BaseModel):
-    admin_id: str
+    admin_id: str | None = None
+    admin_code: str | None = None
     password: str
+
+    @model_validator(mode="after")
+    def check_id_or_code(self) -> "AdminLoginRequest":
+        if not self.admin_id and not self.admin_code:
+            raise ValueError("Either admin_id or admin_code must be provided")
+        if self.admin_code and not self.admin_id:
+            self.admin_id = self.admin_code
+        elif self.admin_id and not self.admin_code:
+            self.admin_code = self.admin_id
+        return self
 
 
 class ForgotAdminIdRequest(BaseModel):

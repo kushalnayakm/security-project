@@ -23,28 +23,39 @@ logger = logging.getLogger(__name__)
 async def seed_admin() -> None:
     async with AsyncSessionLocal() as session:
         try:
-            existing_admin = await session.scalar(select(User).where(User.role == "ADMIN"))
+            # 1. Find or Create the User
+            existing_user = await session.scalar(select(User).where(User.role == "ADMIN"))
+            if existing_user is not None:
+                print("Admin already exists. Updating admin user.")
+                logger.info("Admin seed updating existing admin user.")
+                user = existing_user
+            else:
+                user = User(
+                    name="admin",
+                    password_hash="admin@123",
+                    phone="9876543210",
+                    role="ADMIN",
+                    status="ACTIVE",
+                )
+                session.add(user)
+                await session.flush()
+
+            # 2. Create or Update the Admin profile
+            existing_admin = await session.scalar(select(Admin).where(Admin.user_id == user.user_id))
             if existing_admin is not None:
-                print("Admin already exists. Skipping seed.")
-                logger.info("Admin seed skipped because an ADMIN user already exists.")
-                return
+                print("Admin profile already exists. Updating permissions.")
+                logger.info("Admin profile updating permissions.")
+                existing_admin.can_manage_entities = True
+                existing_admin.can_manage_customers = True
+                admin = existing_admin
+            else:
+                admin = Admin(
+                    user_id=user.user_id,
+                    can_manage_entities=True,
+                    can_manage_customers=True,
+                )
+                session.add(admin)
 
-            user = User(
-                name="System Administrator",
-                password_hash=get_password_hash("Admin@123"),
-                phone="9876543210",
-                role="ADMIN",
-                status="ACTIVE",
-            )
-            session.add(user)
-            await session.flush()
-
-            admin = Admin(
-                user_id=user.user_id,
-                can_manage_entities=True,
-                can_manage_customers=True,
-            )
-            session.add(admin)
             await session.commit()
             await session.refresh(user)
             await session.refresh(admin)

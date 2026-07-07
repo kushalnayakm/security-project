@@ -19,7 +19,7 @@ def require_entity_staff(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     settings: Settings = Depends(get_settings),
 ) -> dict:
-    return require_roles(["ENTITY_STAFF"], credentials, settings)
+    return require_roles(["ENTITY_STAFF", "ADMIN"], credentials, settings)
 
 
 async def require_customer_session(

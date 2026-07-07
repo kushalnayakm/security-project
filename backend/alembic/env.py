@@ -1,6 +1,6 @@
-from logging.config import fileConfig
-import sys
 import asyncio
+import sys
+from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
@@ -16,6 +16,11 @@ from app.models import *  # noqa: F403
 
 
 config = context.config
+
+# Use the same DATABASE_URL as the app (reads from .env / environment)
+from app.core.config import get_settings  # noqa: E402
+settings = get_settings()
+config.set_main_option("sqlalchemy.url", settings.db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

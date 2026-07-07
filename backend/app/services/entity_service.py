@@ -42,6 +42,12 @@ class EntityService:
         ]
 
     async def create_entity(self, session: AsyncSession, payload: dict, created_by: str | None = None) -> Entity:
+        from app.models.user import User
+        from app.models.entity_user import EntityUser
+        from app.core.security import get_password_hash
+        import secrets
+
+        # 1. Create the Entity
         entity = Entity(
             name=payload["name"],
             gst_no=payload.get("gstNo"),
@@ -54,6 +60,26 @@ class EntityService:
             updated_by=created_by,
         )
         session.add(entity)
+        await session.flush()
+
+        # 2. Create corresponding User for the entity staff
+        placeholder_password = secrets.token_hex(32)
+        hashed_password = get_password_hash(placeholder_password)
+        
+        user = User(
+            name=payload["name"],
+            password_hash=hashed_password,
+            phone=payload.get("phone"),
+            role="ENTITY_STAFF",
+            status="ACTIVE",
+        )
+        session.add(user)
+        await session.flush()
+
+        # 3. Create EntityUser link
+        entity_user = EntityUser(entity_id=entity.entity_id, user_id=user.user_id)
+        session.add(entity_user)
+
         await session.commit()
         await session.refresh(entity)
         return entity
@@ -119,8 +145,20 @@ class EntityService:
         if missing_fields:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Missing required fields: {', '.join(missing_fields)}")
 
+        # Resolve customer name and phone from dynamic form values by checking field labels
+        name_val = data.get("name")
+        phone_val = data.get("phone")
+        
+        for field in fields:
+            label_lower = field.label.lower()
+            field_id_str = str(field.field_id)
+            if "name" in label_lower and not name_val:
+                name_val = data.get(field_id_str)
+            elif ("phone" in label_lower or "mobile" in label_lower) and not phone_val:
+                phone_val = data.get(field_id_str)
+
         unique_id = self._generate_unique_id()
-        customer = Customer(entity_id=entity_id, unique_id=unique_id, name=data.get("name"), phone=data.get("phone"))
+        customer = Customer(entity_id=entity_id, unique_id=unique_id, name=name_val, phone=phone_val)
         session.add(customer)
         await session.flush()
         submission = FormSubmission(form_id=form_id, customer_id=customer.customer_id, data=data)

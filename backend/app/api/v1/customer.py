@@ -15,7 +15,28 @@ customer_service = CustomerService()
 @router.get("/me/submission")
 async def get_my_submission(customer: Customer = Depends(require_customer_session), session: AsyncSession = Depends(get_db)) -> dict:
     submission = await customer_service.get_customer_submission(session, str(customer.customer_id))
-    return success_response({"submission": submission})
+    
+    from sqlalchemy import select
+    from app.models.form_field import FormField
+    form_id = submission.get("form_id")
+    fields = []
+    if form_id:
+        from uuid import UUID
+        fields_raw = (await session.execute(
+            select(FormField).where(FormField.form_id == UUID(form_id)).order_by(FormField.field_order)
+        )).scalars().all()
+        fields = [
+            {
+                "field_id": str(f.field_id),
+                "label": f.label,
+                "type": f.type,
+                "is_required": f.is_required,
+                "options": f.options,
+                "field_order": f.field_order,
+            }
+            for f in fields_raw
+        ]
+    return success_response({"submission": submission, "fields": fields})
 
 
 @router.get("/me/certificate")

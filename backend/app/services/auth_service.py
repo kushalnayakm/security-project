@@ -25,12 +25,28 @@ class AuthService:
     """Authentication helpers."""
 
     async def login_admin(self, session: AsyncSession, admin_id: str, password: str, ip_address: str | None = None) -> dict:
-        admin = await session.scalar(select(Admin).where(cast(Admin.admin_id, String) == admin_id))
-        if admin is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin credentials.")
+        import uuid
+        is_uuid = False
+        try:
+            uuid.UUID(admin_id)
+            is_uuid = True
+        except ValueError:
+            pass
 
-        user = await session.get(User, admin.user_id)
-        if user is None or user.role != "ADMIN" or not verify_password(password, user.password_hash):
+        admin = None
+        user = None
+
+        if is_uuid:
+            admin = await session.scalar(select(Admin).where(cast(Admin.admin_id, String) == admin_id))
+            if admin is not None:
+                user = await session.get(User, admin.user_id)
+        else:
+            # Fall back to checking username (User.name)
+            user = await session.scalar(select(User).where(User.name == admin_id, User.role == "ADMIN"))
+            if user is not None:
+                admin = await session.scalar(select(Admin).where(Admin.user_id == user.user_id))
+
+        if admin is None or user is None or user.role != "ADMIN" or not verify_password(password, user.password_hash):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin credentials.")
 
         user.last_login = datetime.utcnow()
@@ -57,28 +73,31 @@ class AuthService:
             expires_delta=timedelta(minutes=settings.jwt_expiry_minutes),
             extra_claims={"user_id": str(user.user_id), "admin_id": str(admin.admin_id)},
         )
-        return {"token": token, "admin": admin}
+        return {"token": token, "admin": admin, "role": user.role}
 
     async def forgot_admin_id(self, session: AsyncSession, phone: str) -> dict:
-        """Find admin by phone number and return admin_id."""
+        """Find admin by phone number and return admin name."""
+        from fastapi import HTTPException, status
+        
         user = await session.scalar(
             select(User).where(User.phone == phone, User.role == "ADMIN")
         )
+
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No account found with this phone number."
+                detail="Admin account not found with this phone number."
             )
 
         admin = await session.scalar(select(Admin).where(Admin.user_id == user.user_id))
         if admin is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No account found with this phone number."
+                detail="Admin account not found with this phone number."
             )
 
-        return {"admin_id": str(admin.admin_id)}
-
+        return {"admin_name": user.name}
+        
     async def request_entity_otp(self, session: AsyncSession, gst_no: str, phone: str) -> dict:
         """Generate and store OTP for entity login."""
         # Verify that GST Number and Phone Number belong to the same entity
@@ -172,7 +191,7 @@ class AuthService:
         )
 
         # Return same response structure as login_entity
-        return {"token": token, "entity": entity}
+        return {"token": token, "entity": entity, "role": user.role}
 
     async def login_entity(self, session: AsyncSession, email: str, password: str) -> dict:
         entity = await session.scalar(select(Entity).where(Entity.email == email))
@@ -194,7 +213,7 @@ class AuthService:
             expires_delta=timedelta(minutes=settings.jwt_expiry_minutes),
             extra_claims={"user_id": str(user.user_id), "entity_id": str(entity.entity_id)},
         )
-        return {"token": token, "entity": entity}
+        return {"token": token, "entity": entity, "role": user.role}
 
     async def register_entity(self, session: AsyncSession, payload: EntityRegisterRequest) -> dict:
         logger.info("Request received in AuthService.register_entity")

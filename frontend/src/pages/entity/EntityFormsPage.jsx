@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { EyeIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, PlusIcon, TrashIcon, Bars3Icon } from "@heroicons/react/24/outline";
 
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -8,6 +8,7 @@ import { Input } from "../../components/ui/Input";
 import { SectionHeading } from "../../components/ui/SectionHeading";
 import { useToast } from "../../context/ToastContext";
 import { entityService } from "../../services/entityService";
+import { publicService } from "../../services/publicService";
 
 function createEmptyField(order = 0) {
   return {
@@ -28,6 +29,69 @@ export function EntityFormsPage() {
     fields: [createEmptyField(0)],
   });
   const [selectedFormId, setSelectedFormId] = useState("");
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [editingFormId, setEditingFormId] = useState(null);
+
+  async function handleEdit(formId) {
+    try {
+      showToast({ title: "Loading form...", description: "Fetching form structure." });
+      const response = await publicService.getForm(formId);
+      const data = response.data.data;
+      setEditingFormId(formId);
+      setDraft({
+        title: data.title,
+        description: data.description || "",
+        fields: (data.fields || []).map((f) => ({
+          label: f.label,
+          type: f.type,
+          isRequired: f.is_required,
+          options: typeof f.options === "string" ? JSON.parse(f.options) : (f.options || []),
+          order: f.field_order,
+        })),
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      showToast({ title: "Unable to load form details", description: error.message });
+    }
+  }
+
+  function handleDragStart(e, index) {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index);
+  }
+
+  function handleDragOver(e, index) {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    
+    const updatedFields = [...draft.fields];
+    const draggedItem = updatedFields[draggedIndex];
+    
+    updatedFields.splice(draggedIndex, 1);
+    updatedFields.splice(index, 0, draggedItem);
+    
+    const reorderedFields = updatedFields.map((field, idx) => ({
+      ...field,
+      order: idx
+    }));
+    
+    setDraft((current) => ({
+      ...current,
+      fields: reorderedFields,
+    }));
+    
+    setDraggedIndex(index);
+  }
+
+  function handleDragEnd() {
+    setDraggedIndex(null);
+  }
+
+  function handleDrop(e, index) {
+    e.preventDefault();
+    setDraggedIndex(null);
+  }
 
   async function loadForms() {
     try {
@@ -42,6 +106,30 @@ export function EntityFormsPage() {
         title: "Unable to load forms",
         description: error.message,
       });
+    }
+  }
+
+  async function handleDelete(formId) {
+    const confirmDelete = window.confirm(
+      "WARNING: Are you sure you want to permanently delete this form? This action is irreversible. All associated QR codes, customer submissions, and certificates will be deleted from the database."
+    );
+    if (!confirmDelete) return;
+
+    try {
+      showToast({ title: "Deleting form...", description: "Removing form from database." });
+      await entityService.deleteForm(formId);
+      showToast({ title: "Form Deleted", description: "Form and all database relationships successfully deleted." });
+      
+      if (editingFormId === formId) {
+        setEditingFormId(null);
+        setDraft({ title: "", description: "", fields: [createEmptyField(0)] });
+      }
+      if (selectedFormId === formId) {
+        setSelectedFormId("");
+      }
+      loadForms();
+    } catch (error) {
+      showToast({ title: "Failed to delete form", description: error.message });
     }
   }
 
@@ -98,13 +186,29 @@ export function EntityFormsPage() {
         order,
       })),
     };
-    const response = await entityService.createForm(payload);
-    showToast({
-      title: "Form saved",
-      description: `Created form ${response.data.data.form_id}.`,
-    });
-    setDraft({ title: "", description: "", fields: [createEmptyField(0)] });
-    await loadForms();
+    try {
+      if (editingFormId) {
+        await entityService.updateForm(editingFormId, payload);
+        showToast({
+          title: "Form updated",
+          description: "The form has been updated successfully.",
+        });
+        setEditingFormId(null);
+      } else {
+        const response = await entityService.createForm(payload);
+        showToast({
+          title: "Form saved",
+          description: `Created form ${response.data.data.form_id}.`,
+        });
+      }
+      setDraft({ title: "", description: "", fields: [createEmptyField(0)] });
+      await loadForms();
+    } catch (error) {
+      showToast({
+        title: "Error saving form",
+        description: error.message,
+      });
+    }
   }
 
   async function handlePublish(isActive) {
@@ -133,8 +237,12 @@ export function EntityFormsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-blue-900">Create new form</h2>
-              <p className="mt-2 text-sm text-slate-600">Create, preview, save, and publish registration forms.</p>
+              <h2 className="text-xl font-semibold text-blue-900">
+                {editingFormId ? "Modify form" : "Create new form"}
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                {editingFormId ? "Modify fields, names, parameter order, and options." : "Create, preview, save, and publish registration forms."}
+              </p>
             </div>
             <Button variant="secondary" onClick={() => addField()}>
               <PlusIcon className="mr-2 h-4 w-4" />
@@ -157,11 +265,26 @@ export function EntityFormsPage() {
             {draft.fields.map((field, index) => {
               const fieldMeta = formsData?.availableFieldTypes?.find((item) => item.type === field.type);
               return (
-                <div key={`${field.type}-${index}`} className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
+                <div
+                  key={`${field.type}-${index}`}
+                  draggable={true}
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onDrop={(e) => handleDrop(e, index)}
+                  className={`rounded-[28px] border border-slate-200 bg-slate-50 p-5 transition-all duration-200 ${
+                    draggedIndex === index ? "opacity-40 scale-[0.98] border-orange-400 border-dashed" : ""
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-blue-900">Field {index + 1}</p>
-                      <p className="mt-1 text-xs text-slate-500">{fieldMeta?.label || field.type}</p>
+                    <div className="flex items-center gap-3">
+                      <div className="cursor-grab text-slate-400 hover:text-slate-600 transition" title="Drag to reorder">
+                        <Bars3Icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-blue-900">Field {index + 1}</p>
+                        <p className="mt-1 text-xs text-slate-500">{fieldMeta?.label || field.type}</p>
+                      </div>
                     </div>
                     <button type="button" onClick={() => removeField(index)} className="text-slate-400 transition hover:text-rose-500">
                       <TrashIcon className="h-5 w-5" />
@@ -222,11 +345,17 @@ export function EntityFormsPage() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button onClick={handleCreateForm}>Save Form</Button>
+            <Button onClick={handleCreateForm}>{editingFormId ? "Update Form" : "Save Form"}</Button>
             <Button variant="secondary" onClick={() => addField("TEXT")}>Add Text Field</Button>
-            <Button variant="ghost" onClick={() => setDraft({ title: "", description: "", fields: [createEmptyField(0)] })}>
-              Reset Draft
-            </Button>
+            {editingFormId ? (
+              <Button variant="ghost" onClick={() => { setEditingFormId(null); setDraft({ title: "", description: "", fields: [createEmptyField(0)] }); }}>
+                Cancel Edit
+              </Button>
+            ) : (
+              <Button variant="ghost" onClick={() => setDraft({ title: "", description: "", fields: [createEmptyField(0)] })}>
+                Reset Draft
+              </Button>
+            )}
           </div>
         </Card>
 
@@ -273,9 +402,19 @@ export function EntityFormsPage() {
             <div className="mt-6 space-y-3">
               {formsData?.existingForms?.length ? (
                 formsData.existingForms.map((form) => (
-                  <div key={form.form_id} className="rounded-3xl border border-slate-200 p-4">
-                    <p className="font-medium text-blue-900">{form.title}</p>
-                    <p className="mt-2 text-sm text-slate-600">Status: {form.isActive ? "Published" : "Draft"}</p>
+                  <div key={form.form_id} className="flex items-center justify-between rounded-3xl border border-slate-200 p-4">
+                    <div>
+                      <p className="font-medium text-blue-900">{form.title}</p>
+                      <p className="mt-2 text-sm text-slate-600">Status: {form.isActive ? "Published" : "Draft"}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="secondary" className="px-3 py-1.5 text-xs font-medium" onClick={() => handleEdit(form.form_id)}>
+                        Edit
+                      </Button>
+                      <Button variant="danger" className="p-1.5" onClick={() => handleDelete(form.form_id)}>
+                        <TrashIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))
               ) : (

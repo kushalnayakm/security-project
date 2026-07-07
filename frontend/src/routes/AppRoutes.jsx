@@ -11,12 +11,15 @@ import { AdminSettingsPage } from "../pages/admin/AdminSettingsPage";
 import { EntityManagementPage } from "../pages/admin/EntityManagementPage";
 import { RegisterEntityPage } from "../pages/admin/RegisterEntityPage";
 import { PlaceholderPage } from "../pages/common/PlaceholderPage";
-import { CustomerComingSoonPage } from "../pages/customer/CustomerComingSoonPage";
+import { CustomerLoginPage } from "../pages/customer/CustomerLoginPage";
+import { CustomerDashboardPage } from "../pages/customer/CustomerDashboardPage";
 import { EntityCertificatesPage } from "../pages/entity/EntityCertificatesPage";
+import { EntityCustomersPage } from "../pages/entity/EntityCustomersPage";
 import { EntityDashboardPage } from "../pages/entity/EntityDashboardPage";
 import { EntityFormsPage } from "../pages/entity/EntityFormsPage";
 import { EntityProfilePage } from "../pages/entity/EntityProfilePage";
 import { EntityQrPage } from "../pages/entity/EntityQrPage";
+import { PublicFormPage } from "../pages/public/PublicFormPage";
 import { AdminLoginPage } from "../pages/auth/AdminLoginPage";
 import { EntityLoginPage } from "../pages/auth/EntityLoginPage";
 import { ProtectedRoute } from "./ProtectedRoute";
@@ -40,7 +43,14 @@ export function AppRoutes() {
           </AuthLayout>
         }
       />
-      <Route path="/customer" element={<CustomerComingSoonPage />} />
+
+      {/* Public form page — no auth required */}
+      <Route path="/form/:formId" element={<PublicFormPage />} />
+
+      {/* Customer portal — standalone auth */}
+      <Route path="/customer/login" element={<CustomerLoginPage />} />
+      <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
+      <Route path="/customer" element={<Navigate to="/customer/login" replace />} />
 
       <Route element={<ProtectedRoute portal="admin" />}>
         <Route element={<AppShell />}>
@@ -60,7 +70,7 @@ export function AppRoutes() {
           <Route path="/entity/dashboard" element={<EntityDashboardPage />} />
           <Route path="/entity/forms" element={<EntityFormsPage />} />
           <Route path="/entity/qr" element={<EntityQrPage />} />
-          <Route path="/entity/customers" element={<PlaceholderPage title="Customers" />} />
+          <Route path="/entity/customers" element={<EntityCustomersPage />} />
           <Route path="/entity/certificates" element={<EntityCertificatesPage />} />
           <Route path="/entity/profile" element={<EntityProfilePage />} />
         </Route>
@@ -70,3 +80,4 @@ export function AppRoutes() {
     </Routes>
   );
 }
+

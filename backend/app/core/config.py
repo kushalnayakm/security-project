@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     app_name: str = "Certificate Management System"
     api_v1_prefix: str = "/api/v1"
     debug: bool = False
-    db_url: str = Field(default="postgresql+asyncpg://cert_admin:your_strong_password@localhost:5432/cert_system", alias="DATABASE_URL")
+    db_url: str = Field(default=None, alias="DATABASE_URL")
     jwt_secret: str = Field(default="change_me", alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_expiry_minutes: int = Field(default=60, alias="JWT_EXPIRY_MINUTES")
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     otp_expiry_seconds: int = Field(default=300, alias="OTP_EXPIRY_SECONDS")
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         populate_by_name=True,

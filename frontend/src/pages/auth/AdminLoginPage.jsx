@@ -38,24 +38,55 @@ export function AdminLoginPage() {
   });
 
   async function handleLogin(values) {
-    const response = await authService.adminLogin(values);
-    const data = response.data.data;
-    login({
-      token: data.token,
-      role: data.role,
-      portal: "admin",
-      profile: data.admin ?? null,
-    });
-    showToast({
-      title: "Admin authenticated",
-      description: "Your console is ready.",
-    });
-    navigate("/admin/dashboard");
+    try {
+      const response = await authService.adminLogin(values);
+      const data = response.data.data;
+      login({
+        token: data.token,
+        role: data.role,
+        portal: "admin",
+        profile: data.admin ?? null,
+      });
+      showToast({
+        title: "Admin authenticated",
+        description: "Your console is ready.",
+      });
+      navigate("/admin/dashboard");
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || error.message || "Invalid credentials";
+      showToast({
+        title: "Login Failed",
+        description: errorMessage,
+      });
+    }
   }
 
   async function handleForgot(values) {
-    const response = await authService.forgotAdminCode(values);
-    setForgotResult(response.data.data);
+    try {
+      const response = await authService.forgotAdminCode(values);
+      const data = response.data.data;
+      setForgotResult(data);
+      showToast({
+        title: "Admin Code Found",
+        description: `Welcome back, ${data.admin_name}!`,
+      });
+    } catch (error) {
+      const status = error.response?.status;
+      const errorMessage = error.response?.data?.detail || error.message || "Failed to retrieve admin code.";
+
+      if (status === 404) {
+        forgotForm.setError("phone", {
+          type: "manual",
+          message: errorMessage,
+        });
+      } else {
+        showToast({
+          title: "Request Failed",
+          description: errorMessage,
+        });
+      }
+      setForgotResult(null);
+    }
   }
 
   return (
@@ -103,11 +134,12 @@ export function AdminLoginPage() {
         </Button>
       </form>
 
-      {forgotResult ? (
+      {/* Only show success message when admin is found */}
+      {forgotResult && forgotResult.admin_name ? (
         <div className="mt-6 rounded-3xl border border-orange-200 bg-orange-50 p-5">
           <p className="text-sm font-medium text-orange-700">Admin Code Found</p>
-          <p className="mt-3 text-2xl font-semibold tracking-[0.2em] text-blue-900">
-            {forgotResult.adminCode || forgotResult.admin_code}
+          <p className="mt-3 text-base text-blue-900">
+            {forgotResult.admin_name}
           </p>
         </div>
       ) : null}

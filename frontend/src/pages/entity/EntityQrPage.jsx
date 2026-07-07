@@ -11,6 +11,7 @@ export function EntityQrPage() {
   const [forms, setForms] = useState([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [qrResult, setQrResult] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function loadForms() {
@@ -29,12 +30,57 @@ export function EntityQrPage() {
     loadForms();
   }, [showToast]);
 
-  async function handlePreviewQr() {
+  // Load existing QR when form selection changes
+  useEffect(() => {
     if (!selectedFormId) {
+      setQrResult(null);
       return;
     }
-    const response = await entityService.getQr(selectedFormId);
-    setQrResult(response.data.data);
+    async function loadQr() {
+      try {
+        const response = await entityService.getQr(selectedFormId);
+        const data = response.data.data;
+        if (data?.qrImageUrl) {
+          setQrResult(data);
+        } else {
+          setQrResult(null);
+        }
+      } catch {
+        setQrResult(null);
+      }
+    }
+    loadQr();
+  }, [selectedFormId]);
+
+  async function handleGenerateQr() {
+    if (!selectedFormId) return;
+    setLoading(true);
+    try {
+      const response = await entityService.generateQr(selectedFormId);
+      setQrResult(response.data.data);
+      showToast({ title: "QR code generated", description: "Your QR code is ready for download." });
+    } catch (error) {
+      showToast({ title: "QR generation failed", description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleDownloadQr() {
+    if (!qrResult?.qrImageUrl) return;
+    const link = document.createElement("a");
+    link.href = qrResult.qrImageUrl;
+    link.download = `qr-${selectedFormId}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function handleCopyUrl() {
+    if (!qrResult?.qrCodeData) return;
+    navigator.clipboard.writeText(qrResult.qrCodeData).then(() => {
+      showToast({ title: "URL copied", description: "Form URL copied to clipboard." });
+    });
   }
 
   return (
@@ -42,7 +88,7 @@ export function EntityQrPage() {
       <SectionHeading
         eyebrow="Entity"
         title="My QR code"
-        description="View the QR assigned to your registration process and keep it ready for customer onboarding."
+        description="Generate a QR code for your registration form. Customers scan it to fill out and submit their details."
       />
 
       <Card className="p-6">
@@ -60,26 +106,44 @@ export function EntityQrPage() {
           ))}
         </select>
         <div className="mt-4 flex gap-3">
-          <Button onClick={handlePreviewQr} disabled={!selectedFormId}>
-            Preview QR
+          <Button onClick={handleGenerateQr} disabled={!selectedFormId || loading}>
+            {loading ? "Generating..." : qrResult ? "Regenerate QR" : "Generate QR"}
           </Button>
-          <Button variant="secondary" disabled>
+          <Button variant="secondary" onClick={handleDownloadQr} disabled={!qrResult?.qrImageUrl}>
             Download QR
           </Button>
-          <Button variant="secondary" disabled>
-            Print QR
+          <Button variant="secondary" onClick={handleCopyUrl} disabled={!qrResult?.qrCodeData}>
+            Copy Form URL
           </Button>
         </div>
       </Card>
 
       <Card className="p-6">
         <p className="text-xs uppercase tracking-[0.3em] text-orange-500">QR Preview</p>
-        <h2 className="mt-3 text-xl font-semibold text-blue-900">Assigned QR payload</h2>
+        <h2 className="mt-3 text-xl font-semibold text-blue-900">
+          {qrResult ? "Your QR code is ready" : "Generate a QR code to preview"}
+        </h2>
         <div className="mt-6 rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-          <p className="text-sm text-slate-500">QR preview</p>
-          <p className="mt-3 break-all text-sm text-slate-700">{qrResult?.qrImageUrl || "QR preview will appear here when available."}</p>
-          <p className="mt-6 text-sm text-slate-500">Assigned reference</p>
-          <p className="mt-2 break-all font-mono text-sm text-slate-700">{qrResult?.form_id || selectedFormId || "No assignment selected"}</p>
+          {qrResult?.qrImageUrl ? (
+            <div className="flex flex-col items-center gap-6">
+              <img
+                src={qrResult.qrImageUrl}
+                alt="QR Code"
+                className="mx-auto h-64 w-64 rounded-2xl"
+              />
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-700">Form URL</p>
+                <p className="break-all rounded-2xl bg-white px-4 py-3 font-mono text-sm text-slate-600">
+                  {qrResult.qrCodeData}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="py-12">
+              <p className="text-sm text-slate-500">Select a form and click "Generate QR" to create a scannable QR code.</p>
+              <p className="mt-3 text-sm text-slate-400">The QR will encode a URL that redirects customers to your registration form.</p>
+            </div>
+          )}
         </div>
       </Card>
     </div>

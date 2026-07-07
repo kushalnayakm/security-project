@@ -20,16 +20,32 @@ To fully enable those flows, update the schema and migration to add `users.email
 
 ## Quick start
 
-```bash
-python -m venv .venv
-. .venv/Scripts/activate
-pip install -r requirements.txt
-copy .env.example .env
-uvicorn app.main:app --reload
-```
+1. Create a virtual environment and install requirements:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate    # On Windows use: .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
 
-## Migrations
+2. Configure settings:
+   ```bash
+   cp .env.example .env  # On Windows use: copy .env.example .env
+   # Update the DATABASE_URL in .env if needed
+   ```
 
+3. Set up the database, schema, default admin and Alembic migrations state:
+   ```bash
+   python setup_db.py
+   ```
+
+4. Run the backend server:
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+## Migrations (Alembic)
+
+For incremental schema updates in the future:
 ```bash
 alembic upgrade head
 ```

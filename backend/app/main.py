@@ -9,7 +9,12 @@ from app.utils.responses import error_response
 
 
 settings = get_settings()
-app = FastAPI(title=settings.app_name, debug=settings.debug)
+app = FastAPI(
+    title=settings.app_name,
+    description="API for managing customer registration, dynamic forms, and certificates.",
+    version="1.0.0",
+    debug=settings.debug
+)
 
 app.add_middleware(
     CORSMiddleware,

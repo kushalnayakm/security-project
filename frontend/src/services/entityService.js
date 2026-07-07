@@ -4,11 +4,13 @@ export const entityService = {
   register(payload) {
     return apiClient.post("/entity/register", payload);
   },
-  getForms() {
-    return apiClient.get("/entity/forms");
+  getForms(entityId) {
+    const params = entityId ? { entity_id: entityId } : {};
+    return apiClient.get("/entity/forms", { params });
   },
-  createForm(payload) {
-    return apiClient.post("/entity/forms", payload);
+  createForm(payload, entityId) {
+    const params = entityId ? { entity_id: entityId } : {};
+    return apiClient.post("/entity/forms", payload, { params });
   },
   updateForm(formId, payload) {
     return apiClient.patch(`/entity/forms/${formId}`, payload);
@@ -30,5 +32,12 @@ export const entityService = {
   },
   generateCertificate(submissionId, payload) {
     return apiClient.post(`/entity/submissions/${submissionId}/certificate`, payload);
+  },
+  getCustomers(entityId) {
+    const params = entityId ? { entity_id: entityId } : {};
+    return apiClient.get("/entity/customers", { params });
+  },
+  deleteForm(formId) {
+    return apiClient.delete(`/entity/forms/${formId}`);
   },
 };
