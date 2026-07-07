@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply min-h-screen bg-slate-50 text-slate-900 antialiased;
+  background-image:
+    radial-gradient(circle at top left, rgba(255, 153, 51, 0.18), transparent 26%),
+    radial-gradient(circle at top right, rgba(19, 136, 8, 0.12), transparent 20%),
+    linear-gradient(180deg, #f8fafc 0%, #eef4ff 100%);
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+#root {
+  @apply min-h-screen;
+}
+
+* {
+  scrollbar-color: rgba(30, 58, 138, 0.25) transparent;
+}
+
+::selection {
+  background: rgba(255, 153, 51, 0.22);
+}
+
+.enterprise-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at top right, rgba(30, 58, 138, 0.08), transparent 24%);
+}
