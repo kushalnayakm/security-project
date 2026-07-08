@@ -46,3 +46,10 @@ class FormRead(ORMModel):
     description: str | None
     is_active: bool
     created_at: datetime
+
+
+class WelcomeUpdateRequest(BaseModel):
+    showWelcome: bool
+    welcomeTitle: str | None = None
+    welcomeMessage: str | None = None
+    welcomeLogo: str | None = None

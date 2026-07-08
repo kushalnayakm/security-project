@@ -85,6 +85,7 @@ export function PublicFormPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [showGreeting, setShowGreeting] = useState(false);
 
   useEffect(() => {
     async function loadForm() {
@@ -92,6 +93,9 @@ export function PublicFormPage() {
         const response = await publicService.getForm(formId);
         const data = response.data.data;
         setFormData(data);
+        if (data.welcome?.showWelcome) {
+          setShowGreeting(true);
+        }
         // Initialize answers
         const initial = {};
         (data.fields || []).forEach((field) => {
@@ -163,6 +167,59 @@ export function PublicFormPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
         <p className="text-sm text-slate-500">Loading form...</p>
+      </div>
+    );
+  }
+
+  // Greeting Welcome Screen
+  if (showGreeting && formData?.welcome) {
+    const { welcomeTitle, welcomeMessage, welcomeLogo } = formData.welcome;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
+        <style>{`
+          @keyframes fadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          .animate-fade-in-up {
+            opacity: 0;
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+        `}</style>
+        <Card className="w-full max-w-lg p-10 text-center space-y-6 shadow-2xl shadow-slate-100/50 border border-slate-100/85">
+          {welcomeLogo && (
+            <div className="flex justify-center animate-fade-in-up">
+              <img
+                src={welcomeLogo}
+                alt="Welcome Logo"
+                className="max-h-24 max-w-xs object-contain rounded-2xl p-1 bg-white border border-slate-100"
+              />
+            </div>
+          )}
+          <div className="space-y-3 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
+            <h1 className="text-3xl font-extrabold text-blue-900 leading-tight">
+              {welcomeTitle || "Welcome"}
+            </h1>
+            <div className="h-1.5 w-16 bg-gradient-to-r from-orange-400 to-orange-500 mx-auto rounded-full" />
+          </div>
+          <p className="text-slate-600 text-sm leading-relaxed max-w-md mx-auto animate-fade-in-up" style={{ animationDelay: "300ms" }}>
+            {welcomeMessage || "Thank you for scanning. Please click below to begin your registration."}
+          </p>
+          <div className="pt-4 animate-fade-in-up" style={{ animationDelay: "450ms" }}>
+            <Button
+              onClick={() => setShowGreeting(false)}
+              className="w-full py-4 text-base bg-gradient-to-r from-orange-400 via-orange-500 to-blue-900 text-white rounded-2xl shadow-lg hover:shadow-xl hover:translate-y-[-1px] transition-all duration-200"
+            >
+              Get Started
+            </Button>
+          </div>
+        </Card>
       </div>
     );
   }

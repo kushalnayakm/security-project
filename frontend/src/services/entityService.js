@@ -40,4 +40,7 @@ export const entityService = {
   deleteForm(formId) {
     return apiClient.delete(`/entity/forms/${formId}`);
   },
+  updateWelcomeSettings(formId, payload) {
+    return apiClient.post(`/entity/forms/${formId}/welcome`, payload);
+  },
 };

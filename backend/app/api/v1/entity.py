@@ -12,7 +12,7 @@ from app.models.form_field import FormField
 from app.models.form_submission import FormSubmission
 from app.models.qr_code import QrCode
 from app.schemas.entity import EntityRegisterRequest
-from app.schemas.forms import CertificateCreate, DynamicFormCreate, DynamicFormUpdate, PublishFormRequest
+from app.schemas.forms import CertificateCreate, DynamicFormCreate, DynamicFormUpdate, PublishFormRequest, WelcomeUpdateRequest
 from app.services.auth_service import AuthService
 from app.services.entity_service import EntityService
 from app.utils.qr_generator import generate_qr_image
@@ -104,27 +104,74 @@ async def generate_qr_code(form_id: str, base_url: str = "http://localhost:5173"
     qr_image_data_uri = generate_qr_image(target_url)
 
     # Upsert — qr_codes.form_id has a UNIQUE constraint
-    existing = await session.scalar(select(QrCode).where(QrCode.form_id == form_id))
+    existing = await session.scalar(select(QrCode).where(QrCode.form_id == (UUID(form_id) if isinstance(form_id, str) else form_id)))
     if existing:
         existing.qr_code_data = target_url
         existing.qr_image_url = qr_image_data_uri
         await session.commit()
         await session.refresh(existing)
-        return success_response({"qr_id": str(existing.qr_id), "qrCodeData": target_url, "qrImageUrl": qr_image_data_uri})
+        return success_response({
+            "qr_id": str(existing.qr_id),
+            "qrCodeData": target_url,
+            "qrImageUrl": qr_image_data_uri,
+            "showWelcome": existing.show_welcome,
+            "welcomeTitle": existing.welcome_title,
+            "welcomeMessage": existing.welcome_message,
+            "welcomeLogo": existing.welcome_logo,
+        })
 
     qr = QrCode(form_id=form_id, qr_code_data=target_url, qr_image_url=qr_image_data_uri)
     session.add(qr)
     await session.commit()
     await session.refresh(qr)
-    return success_response({"qr_id": str(qr.qr_id), "qrCodeData": target_url, "qrImageUrl": qr_image_data_uri})
+    return success_response({
+        "qr_id": str(qr.qr_id),
+        "qrCodeData": target_url,
+        "qrImageUrl": qr_image_data_uri,
+        "showWelcome": qr.show_welcome,
+        "welcomeTitle": qr.welcome_title,
+        "welcomeMessage": qr.welcome_message,
+        "welcomeLogo": qr.welcome_logo,
+    })
 
 
 @router.get("/forms/{form_id}/qr-code", dependencies=[Depends(require_entity_staff)])
 async def get_qr_code(form_id: str, session: AsyncSession = Depends(get_db)) -> dict:
-    qr = await session.scalar(select(QrCode).where(QrCode.form_id == form_id))
+    qr = await session.scalar(select(QrCode).where(QrCode.form_id == UUID(form_id)))
     if qr is None:
         return success_response({"form_id": form_id, "qrImageUrl": None, "qrCodeData": None})
-    return success_response({"form_id": form_id, "qr_id": str(qr.qr_id), "qrCodeData": qr.qr_code_data, "qrImageUrl": qr.qr_image_url})
+    return success_response({
+        "form_id": form_id,
+        "qr_id": str(qr.qr_id),
+        "qrCodeData": qr.qr_code_data,
+        "qrImageUrl": qr.qr_image_url,
+        "showWelcome": qr.show_welcome,
+        "welcomeTitle": qr.welcome_title,
+        "welcomeMessage": qr.welcome_message,
+        "welcomeLogo": qr.welcome_logo,
+    })
+
+
+@router.post("/forms/{form_id}/welcome", dependencies=[Depends(require_entity_staff)])
+async def update_welcome_settings(form_id: str, payload: WelcomeUpdateRequest, session: AsyncSession = Depends(get_db)) -> dict:
+    qr = await session.scalar(select(QrCode).where(QrCode.form_id == UUID(form_id)))
+    if qr is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="QR Code settings not found for this form. Please generate a QR code first.")
+    
+    qr.show_welcome = payload.showWelcome
+    qr.welcome_title = payload.welcomeTitle
+    qr.welcome_message = payload.welcomeMessage
+    qr.welcome_logo = payload.welcomeLogo
+    await session.commit()
+    await session.refresh(qr)
+    
+    return success_response({
+        "form_id": form_id,
+        "showWelcome": qr.show_welcome,
+        "welcomeTitle": qr.welcome_title,
+        "welcomeMessage": qr.welcome_message,
+        "welcomeLogo": qr.welcome_logo,
+    })
 
 
 @router.get("/forms/{form_id}/submissions", dependencies=[Depends(require_entity_staff)])

@@ -118,3 +118,15 @@ The Admin Portal features a full-access QR Management workspace (`/admin/qr`):
 * **Unpublished Form Restrictions**: When an Admin or Entity user unpublishes a form (setting its `is_active` status to `false` in the database), the backend public endpoints (`GET /public/forms/{form_id}` and `POST /public/forms/{form_id}/submit`) are blocked, returning `403 Forbidden` errors. The public registration page renders a warning notification dynamically to the customer.
 * **Cascade Deletion**: Both the **Admin Forms Management** (`/admin/forms`) and **Entity Forms Builder** (`/entity/forms`) pages feature a **Delete** button next to each existing form. 
 * **Warning Dialog**: Triggering deletion displays a warning prompt warning the user that the action is permanent. Deleting a form calls the backend delete API, which leverages PostgreSQL foreign key cascading (`ON DELETE CASCADE`) to permanently drop all related fields, QR codes, submissions, and certificates from the database.
+
+---
+
+## 11. Welcome Greeting Screen
+
+* **Dynamic Welcome Greeting**: When enabled, customers scanning the QR code are first shown a customizable greeting page before seeing the input form. This welcomes them and lists instructions or company branding.
+* **Greeting Customizer**: In the **My QR code** page (`/entity/qr`), the organization staff can configure the greeting settings:
+  * **Toggle Display**: Option to turn the greeting screen on/off.
+  * **Welcome Title**: Custom header message.
+  * **Welcome Message**: Markdown-capable greeting text or instructions.
+  * **Custom Logo**: Local image selector converting to Base64 to save custom branding.
+* **Animated Rendering**: The public page (`/form/{form_id}`) renders the welcome greeting using smooth CSS fadeInUp keyframe transitions for a premium, polished user experience. Customers click a **Get Started** button to proceed to the registration inputs.

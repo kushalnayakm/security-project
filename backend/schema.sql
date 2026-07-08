@@ -66,6 +66,10 @@ CREATE TABLE qr_codes (
     form_id         UUID NOT NULL UNIQUE REFERENCES dynamic_forms(form_id) ON DELETE CASCADE,
     qr_code_data    TEXT NOT NULL,
     qr_image_url    TEXT,
+    show_welcome    BOOLEAN NOT NULL DEFAULT TRUE,
+    welcome_title   VARCHAR(150) DEFAULT 'Welcome',
+    welcome_message TEXT,
+    welcome_logo    TEXT,
     created_at      TIMESTAMP NOT NULL DEFAULT now(),
     expires_at      TIMESTAMP
 );

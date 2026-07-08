@@ -18,6 +18,7 @@ entity_service = EntityService()
 
 @router.get("/forms/{form_id}")
 async def get_form(form_id: UUID, session: AsyncSession = Depends(get_db)) -> dict:
+    from app.models.qr_code import QrCode
     form = await session.get(DynamicForm, form_id)
     if form is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found with this ID.")
@@ -38,7 +39,23 @@ async def get_form(form_id: UUID, session: AsyncSession = Depends(get_db)) -> di
         }
         for f in fields_raw
     ]
-    return success_response({"form_id": str(form.form_id), "entity_id": str(form.entity_id), "title": form.title, "description": form.description, "fields": fields})
+    
+    qr = await session.scalar(select(QrCode).where(QrCode.form_id == form_id))
+    welcome = {
+        "showWelcome": qr.show_welcome if qr else True,
+        "welcomeTitle": qr.welcome_title if qr else "Welcome",
+        "welcomeMessage": qr.welcome_message if qr else "Please fill out this form to complete your registration.",
+        "welcomeLogo": qr.welcome_logo if qr else None,
+    }
+    
+    return success_response({
+        "form_id": str(form.form_id),
+        "entity_id": str(form.entity_id),
+        "title": form.title,
+        "description": form.description,
+        "fields": fields,
+        "welcome": welcome,
+    })
 
 
 @router.post("/forms/{form_id}/submit", status_code=status.HTTP_201_CREATED)
