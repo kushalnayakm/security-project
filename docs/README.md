@@ -28,6 +28,11 @@ Please refer to the detailed sections below to understand, configure, and develo
    * **Admin Management Workspace**: Role checks, entity onboarding, and form editing.
   * **Entity Hierarchical Sub-Branches**: Self-referencing parent-child branch structures.
 
+4. 📡 **[API Endpoint Reference](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/docs/api-endpoint.md)**
+   * Complete directory of Version 1 endpoints.
+   * Standardized request/response envelopes and authentication scopes.
+   * Scoped payloads for admins, entities, staff, and customers.
+
 ---
 
 ## Technical Stack
