@@ -123,10 +123,27 @@ The Admin Portal features a full-access QR Management workspace (`/admin/qr`):
 
 ## 11. Welcome Greeting Screen
 
-* **Dynamic Welcome Greeting**: When enabled, customers scanning the QR code are first shown a customizable greeting page before seeing the input form. This welcomes them and lists instructions or company branding.
+* **Welcome Greeting Screen**: When enabled, customers scanning the QR code are first shown a customizable greeting page before seeing the input form. This welcomes them and lists instructions or company branding.
 * **Greeting Customizer**: In the **My QR code** page (`/entity/qr`), the organization staff can configure the greeting settings:
   * **Toggle Display**: Option to turn the greeting screen on/off.
   * **Welcome Title**: Custom header message.
   * **Welcome Message**: Markdown-capable greeting text or instructions.
   * **Custom Logo**: Local image selector converting to Base64 to save custom branding.
 * **Animated Rendering**: The public page (`/form/{form_id}`) renders the welcome greeting using smooth CSS fadeInUp keyframe transitions for a premium, polished user experience. Customers click a **Get Started** button to proceed to the registration inputs.
+
+---
+
+## 12. Entity Hierarchical Sub-Branches
+
+The system supports parent-child relationships between entities to model sub-branches (e.g. main headquarters and regional offices).
+
+* **Database Relationship**: Implemented using a self-referencing relationship in the `entities` table:
+  * `parent_entity_id`: A nullable UUID field linking a branch back to its parent entity.
+  * `entity_type`: Enum indicating whether the entity is a `MAIN` organization or a `BRANCH`.
+* **Creation and Onboarding**: When registering an entity, you can optionally provide a `parentEntityId`. If supplied:
+  * The newly created entity's type is automatically set to `BRANCH`.
+  * The system validates that the referenced parent entity exists and is a `MAIN` entity type (multi-level nested branching is blocked for safety and simplicity).
+* **Endpoints**:
+  * `GET /admin/entities`: Lists main organizations (`MAIN` type with `parent_entity_id IS NULL`) by default.
+  * `GET /admin/entities/{entity_id}/branches`: Retrieves a list of all sub-branches under a specific main organization.
+

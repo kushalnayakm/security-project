@@ -12,11 +12,15 @@ class Entity(Base):
     __tablename__ = "entities"
     __table_args__ = (
         CheckConstraint("status IN ('ACTIVE','INACTIVE','REMOVED')", name="entities_status_check"),
+        CheckConstraint("entity_type IN ('MAIN','BRANCH')", name="entities_entity_type_check"),
     )
 
     entity_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    parent_entity_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("entities.entity_id", ondelete="CASCADE"))
+    entity_type: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'MAIN'"))
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     gst_no: Mapped[str | None] = mapped_column(String(50), unique=True)
+    gst_doc_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     business_type: Mapped[str | None] = mapped_column(String(100))
     address: Mapped[str | None] = mapped_column(Text)
     contact_person: Mapped[str | None] = mapped_column(String(100))

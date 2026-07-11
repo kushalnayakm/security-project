@@ -30,7 +30,7 @@ Processes incoming HTTP requests, maps requests to Pydantic schemas, delegates b
 * [entity.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/entity.py): Form creation, update, publication, deletion, QR code actions, and registered customer lists.
 * [public.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/public.py): Public form configuration retrieval and submission processing (with active/published validations).
 * [customer.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/customer.py): Logged-in customer submission and certificate lookups.
-* [admin.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/admin.py): Administrative functions for entities and logs.
+* [admin.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/admin.py): Administrative functions for entities, branch management/lookups, and logs.
 
 ### Business Service Layer (`services/`)
 Orchestrates application logic. Operates directly on database models:
@@ -71,7 +71,7 @@ The system uses a PostgreSQL database. Below are the key entities and relationsh
 
 * **`users`**: Root user credential table. Roles are `ADMIN` or `ENTITY_STAFF`.
 * **`admins`**: Extra administrative metadata fields linked to `users`.
-* **`entities`**: Onboarded organizations containing phone, email, and GST details.
+* **`entities`**: Onboarded organizations containing phone, email, and GST details. Supports hierarchical sub-branching through `parent_entity_id` (self-referencing FK) and `entity_type` (`MAIN`/`BRANCH`).
 * **`entity_users`**: Mapping table linking `entities` to their registered `users` (staff).
 * **`dynamic_forms`**: Forms configured by entities.
 * **`form_fields`**: Columns or inputs designed for forms (e.g. text fields, select lists).

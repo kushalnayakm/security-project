@@ -39,6 +39,11 @@ async def delete_entity(entity_id: str, request: Request, session: AsyncSession 
     return success_response({"success": True})
 
 
+@router.get("/entities/{entity_id}/branches")
+async def list_branches(entity_id: str, session: AsyncSession = Depends(get_db)) -> dict:
+    return success_response(await entity_service.list_branches(session, entity_id))
+
+
 @router.patch("/customers/{customer_id}")
 async def update_customer(customer_id: str, payload: CustomerUpdate) -> dict:
     return success_response({"customer_id": customer_id, "updated": True, "payload": payload.model_dump(exclude_none=True)})

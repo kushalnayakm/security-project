@@ -69,11 +69,20 @@ python backend/setup_db.py
 
 ### Run Backend (FastAPI)
 
-Run these commands in a terminal window:
-
+#### Option A: Using `uv` (Recommended - Lightning Fast)
 ```bash
 cd backend
-source .venv/bin/activate
+uv venv
+uv sync
+uv run uvicorn app.main:app --reload
+```
+
+#### Option B: Standard Python `venv`
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate    # On Windows use: .venv\Scripts\activate
+pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
@@ -101,6 +110,10 @@ Execute Python tests using `pytest`:
 
 ```bash
 cd backend
+# Using uv:
+uv run pytest
+
+# Or using standard venv:
 source .venv/bin/activate
 pytest
 ```

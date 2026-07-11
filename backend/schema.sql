@@ -6,6 +6,7 @@ CREATE TABLE users (
     phone           VARCHAR(20),
     role            VARCHAR(20) NOT NULL CHECK (role IN ('ADMIN','ENTITY_STAFF')),
     status          VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE','SUSPENDED')),
+    photo_url       TEXT,
     created_at      TIMESTAMP NOT NULL DEFAULT now(),
     last_login      TIMESTAMP
 );
@@ -20,8 +21,11 @@ CREATE TABLE admins (
 
 CREATE TABLE entities (
     entity_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    parent_entity_id UUID REFERENCES entities(entity_id) ON DELETE CASCADE,
+    entity_type     VARCHAR(20) NOT NULL DEFAULT 'MAIN' CHECK (entity_type IN ('MAIN','BRANCH')),
     name            VARCHAR(100) NOT NULL,
     gst_no          VARCHAR(50) UNIQUE,
+    gst_doc_url     TEXT,
     business_type   VARCHAR(100),
     address         TEXT,
     contact_person  VARCHAR(100),
@@ -37,6 +41,8 @@ CREATE TABLE entities (
 CREATE TABLE entity_users (
     entity_id       UUID NOT NULL REFERENCES entities(entity_id) ON DELETE CASCADE,
     user_id         UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    role            VARCHAR(30) NOT NULL DEFAULT 'OWNER' CHECK (role IN ('OWNER','MANAGER','STAFF')),
+    added_by        UUID REFERENCES users(user_id) ON DELETE SET NULL,
     created_at      TIMESTAMP NOT NULL DEFAULT now(),
     PRIMARY KEY (entity_id, user_id)
 );
@@ -122,3 +128,4 @@ CREATE INDEX idx_form_fields_form_id       ON form_fields(form_id);
 CREATE INDEX idx_certificates_submission   ON certificates(submission_id);
 CREATE INDEX idx_audit_logs_target         ON audit_logs(target_type, target_id);
 CREATE INDEX idx_admins_user_id            ON admins(user_id);
+CREATE INDEX idx_entities_parent            ON entities(parent_entity_id) WHERE parent_entity_id IS NOT NULL;

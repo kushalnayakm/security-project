@@ -6,12 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.dependencies.auth import require_entity_staff
+from app.dependencies.auth import require_entity_staff, require_entity_owner
 from app.models.dynamic_form import DynamicForm
 from app.models.form_field import FormField
 from app.models.form_submission import FormSubmission
 from app.models.qr_code import QrCode
-from app.schemas.entity import EntityRegisterRequest
+from app.schemas.entity import EntityRegisterRequest, BranchCreate
 from app.schemas.forms import CertificateCreate, DynamicFormCreate, DynamicFormUpdate, PublishFormRequest, WelcomeUpdateRequest
 from app.services.auth_service import AuthService
 from app.services.entity_service import EntityService
@@ -34,6 +34,20 @@ async def register_entity(payload: EntityRegisterRequest, session: AsyncSession 
     logger.info("Entity registration password length: %s", len(payload.password))
     result = await auth_service.register_entity(session, payload)
     return success_response(result)
+
+
+@router.post("/branches", dependencies=[Depends(require_entity_owner)], status_code=status.HTTP_201_CREATED)
+async def create_branch(
+    payload: BranchCreate,
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_owner)
+) -> dict:
+    payload_dict = payload.model_dump()
+    payload_dict["parentEntityId"] = actor.get("entity_id")
+    
+    # Create the branch entity
+    branch = await entity_service.create_entity(session, payload_dict, created_by=actor.get("user_id"))
+    return success_response({"entity_id": str(branch.entity_id)})
 
 
 @router.get("/forms", dependencies=[Depends(require_entity_staff)])

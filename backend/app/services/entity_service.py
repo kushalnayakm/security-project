@@ -15,10 +15,12 @@ from app.models.form_submission import FormSubmission
 
 
 class EntityService:
-    async def list_entities(self, session: AsyncSession, status_filter: str | None = None) -> list[dict]:
+    async def list_entities(self, session: AsyncSession, status_filter: str | None = None, include_branches: bool = False) -> list[dict]:
         stmt = (
             select(
                 Entity.entity_id,
+                Entity.parent_entity_id,
+                Entity.entity_type,
                 Entity.name,
                 Entity.status,
                 Entity.gst_no,
@@ -29,10 +31,14 @@ class EntityService:
         )
         if status_filter:
             stmt = stmt.where(Entity.status == status_filter)
+        if not include_branches:
+            stmt = stmt.where(Entity.entity_type == "MAIN")
         rows = (await session.execute(stmt)).all()
         return [
             {
                 "entity_id": row.entity_id,
+                "parent_entity_id": str(row.parent_entity_id) if row.parent_entity_id else None,
+                "entity_type": row.entity_type,
                 "name": row.name,
                 "gstNo": row.gst_no,
                 "status": row.status,
@@ -47,14 +53,38 @@ class EntityService:
         from app.core.security import get_password_hash
         import secrets
 
+        # Determine entity type based on parent
+        parent_entity_id = payload.get("parentEntityId") or payload.get("parent_entity_id")
+        entity_type = "BRANCH" if parent_entity_id else "MAIN"
+
+        phone_val = payload.get("phone")
+        gst_val = payload.get("gstNo") or payload.get("gst_no")
+
+        # If creating a branch, validate that the parent exists and is a MAIN entity
+        if parent_entity_id:
+            parent = await session.get(Entity, str(parent_entity_id))
+            if parent is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent entity not found.")
+            if parent.entity_type != "MAIN":
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Branches can only be created under main entities.")
+            
+            # Inherit phone and GST from parent if not explicitly provided
+            if not phone_val:
+                phone_val = parent.phone
+            if not gst_val:
+                gst_val = parent.gst_no
+
         # 1. Create the Entity
         entity = Entity(
             name=payload["name"],
-            gst_no=payload.get("gstNo"),
-            business_type=payload.get("businessType"),
+            parent_entity_id=str(parent_entity_id) if parent_entity_id else None,
+            entity_type=entity_type,
+            gst_no=gst_val,
+            gst_doc_url=payload.get("gstDocUrl") or payload.get("gst_doc_url"),
+            business_type=payload.get("businessType") or payload.get("business_type"),
             address=payload.get("address"),
-            contact_person=payload.get("contactPerson"),
-            phone=payload.get("phone"),
+            contact_person=payload.get("contactPerson") or payload.get("contact_person"),
+            phone=phone_val,
             email=payload.get("email"),
             created_by=created_by,
             updated_by=created_by,
@@ -69,7 +99,7 @@ class EntityService:
         user = User(
             name=payload["name"],
             password_hash=hashed_password,
-            phone=payload.get("phone"),
+            phone=phone_val,
             role="ENTITY_STAFF",
             status="ACTIVE",
         )
@@ -77,7 +107,7 @@ class EntityService:
         await session.flush()
 
         # 3. Create EntityUser link
-        entity_user = EntityUser(entity_id=entity.entity_id, user_id=user.user_id)
+        entity_user = EntityUser(entity_id=entity.entity_id, user_id=user.user_id, role="OWNER")
         session.add(entity_user)
 
         await session.commit()
@@ -90,8 +120,10 @@ class EntityService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No entity found with this ID.")
         mapping = {
             "gstNo": "gst_no",
+            "gstDocUrl": "gst_doc_url",
             "businessType": "business_type",
             "contactPerson": "contact_person",
+            "parentEntityId": "parent_entity_id",
         }
         for key, value in payload.items():
             attr = mapping.get(key, key)
@@ -107,6 +139,46 @@ class EntityService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No entity found with this ID.")
         await session.delete(entity)
         await session.commit()
+
+    async def list_branches(self, session: AsyncSession, entity_id: str) -> list[dict]:
+        """List all sub-branches of a given entity."""
+        parent = await session.get(Entity, entity_id)
+        if parent is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No entity found with this ID.")
+        stmt = (
+            select(
+                Entity.entity_id,
+                Entity.parent_entity_id,
+                Entity.entity_type,
+                Entity.name,
+                Entity.status,
+                Entity.gst_no,
+                Entity.address,
+                Entity.phone,
+                Entity.email,
+                Entity.contact_person,
+                Entity.created_at,
+            )
+            .where(Entity.parent_entity_id == entity_id)
+            .order_by(Entity.created_at.desc())
+        )
+        rows = (await session.execute(stmt)).all()
+        return [
+            {
+                "entity_id": row.entity_id,
+                "parent_entity_id": str(row.parent_entity_id) if row.parent_entity_id else None,
+                "entity_type": row.entity_type,
+                "name": row.name,
+                "gstNo": row.gst_no,
+                "status": row.status,
+                "address": row.address,
+                "phone": row.phone,
+                "email": row.email,
+                "contactPerson": row.contact_person,
+                "createdAt": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in rows
+        ]
 
     async def create_form(self, session: AsyncSession, entity_id: str, payload: dict) -> DynamicForm:
         form = DynamicForm(entity_id=entity_id, title=payload["title"], description=payload.get("description"))

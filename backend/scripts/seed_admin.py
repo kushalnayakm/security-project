@@ -32,7 +32,7 @@ async def seed_admin() -> None:
             else:
                 user = User(
                     name="admin",
-                    password_hash="admin@123",
+                    password_hash=get_password_hash("admin@123"),
                     phone="9876543210",
                     role="ADMIN",
                     status="ACTIVE",

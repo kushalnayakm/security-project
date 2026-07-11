@@ -26,6 +26,7 @@ Please refer to the detailed sections below to understand, configure, and develo
    * **Customer Portal**: Passwordless login via Unique ID, view submission data, and certificate retrieval.
    * **Entity Live Submissions Feed**: Real-time polling feed showing new registrations on the dashboard.
    * **Admin Management Workspace**: Role checks, entity onboarding, and form editing.
+  * **Entity Hierarchical Sub-Branches**: Self-referencing parent-child branch structures.
 
 ---
 

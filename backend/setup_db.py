@@ -174,11 +174,14 @@ async def main():
         user_id = uuid.uuid4()
         admin_id = uuid.uuid4()
         
-        # Password is set to plain text 'admin@123'
+        # Seed default admin user with a hashed password
+        from app.core.security import get_password_hash
+        hashed_admin_password = get_password_hash("admin@123")
+
         await conn.execute("""
             INSERT INTO users (user_id, name, password_hash, phone, role, status)
             VALUES ($1, $2, $3, $4, $5, $6)
-        """, user_id, "admin", "admin@123", "9876543210", "ADMIN", "ACTIVE")
+        """, user_id, "admin", hashed_admin_password, "9876543210", "ADMIN", "ACTIVE")
         
         await conn.execute("""
             INSERT INTO admins (admin_id, user_id, can_manage_entities, can_manage_customers)

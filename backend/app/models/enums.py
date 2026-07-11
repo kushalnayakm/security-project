@@ -18,6 +18,17 @@ class EntityStatus(StrEnum):
     REMOVED = "REMOVED"
 
 
+class EntityType(StrEnum):
+    MAIN = "MAIN"
+    BRANCH = "BRANCH"
+
+
+class EntityUserRole(StrEnum):
+    OWNER = "OWNER"
+    MANAGER = "MANAGER"
+    STAFF = "STAFF"
+
+
 class FieldType(StrEnum):
     TEXT = "TEXT"
     NUMBER = "NUMBER"
