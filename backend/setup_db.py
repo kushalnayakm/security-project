@@ -12,8 +12,8 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 
-def load_db_url_from_env():
-    """Parser to dynamically read DATABASE_URL from .env file with zero external dependencies."""
+def load_env_file():
+    """Load all keys and values from the .env file into os.environ with zero external dependencies."""
     candidates = [
         BACKEND_DIR / ".env",
         BACKEND_DIR.parent / ".env",
@@ -30,19 +30,22 @@ def load_db_url_from_env():
                             continue
                         if "=" in line:
                             key, val = line.split("=", 1)
-                            if key.strip() == "DATABASE_URL":
-                                return val.strip().strip('"').strip("'")
+                            key = key.strip()
+                            val = val.strip().strip('"').strip("'")
+                            if key and key not in os.environ:
+                                os.environ[key] = val
+                break
             except Exception:
                 pass
-    return os.environ.get("DATABASE_URL")
 
+# Load environment configuration
+load_env_file()
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# Load DB URL dynamically from .env file
-DATABASE_URL = load_db_url_from_env()
-
-# Try importing asyncpg. If it is missing, try running with the local virtual environment Python.
+# Try importing dependencies. If any are missing, try running with the local virtual environment Python.
 try:
     import asyncpg
+    from app.core.security import get_password_hash
 except ImportError:
     # Search for .venv in parent and script directory
     venv_dirs = [
@@ -66,7 +69,7 @@ except ImportError:
         res = subprocess.run([str(python_exe)] + sys.argv)
         sys.exit(res.returncode)
     else:
-        print("Error: Required dependency (asyncpg) not found, and no virtual environment (.venv) was detected.")
+        print("Error: Required dependencies (asyncpg, fastapi) not found, and no virtual environment (.venv) was detected.")
         print("Please activate your virtual environment or install the required packages:")
         print("  pip install -r backend/requirements.txt")
         sys.exit(1)
