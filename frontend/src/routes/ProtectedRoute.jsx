@@ -6,7 +6,7 @@ export function ProtectedRoute({ portal }) {
   const { session } = useAuth();
 
   if (!session?.token) {
-    return <Navigate to="/auth/admin/login" replace />;
+    return <Navigate to="/auth/entity/login" replace />;
   }
 
   if (portal && session.portal !== portal) {

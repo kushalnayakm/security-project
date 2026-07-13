@@ -4,15 +4,24 @@
 
 :root {
   color-scheme: light;
+  --bg: #f8fafc;
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-strong: #ffffff;
+  --primary: #00c2b8;
+  --secondary: #0f4c81;
+  --success: #2e7d32;
+  --warning: #ffb300;
+  --shadow-soft: 0 24px 80px -36px rgba(15, 76, 129, 0.28);
 }
 
 body {
   @apply min-h-screen bg-slate-50 text-slate-900 antialiased;
   background-image:
-    radial-gradient(circle at top left, rgba(255, 153, 51, 0.18), transparent 26%),
-    radial-gradient(circle at top right, rgba(19, 136, 8, 0.12), transparent 20%),
-    linear-gradient(180deg, #f8fafc 0%, #eef4ff 100%);
-  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+    radial-gradient(circle at top left, rgba(0, 194, 184, 0.18), transparent 28%),
+    radial-gradient(circle at 85% 10%, rgba(15, 76, 129, 0.16), transparent 22%),
+    radial-gradient(circle at 50% 100%, rgba(255, 179, 0, 0.12), transparent 18%),
+    linear-gradient(180deg, #f8fafc 0%, #eef6f8 46%, #f4f8fc 100%);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
 }
 
 #root {
@@ -24,11 +33,61 @@ body {
 }
 
 ::selection {
-  background: rgba(255, 153, 51, 0.22);
+  background: rgba(0, 194, 184, 0.2);
 }
 
 .enterprise-shell {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.98)),
-    radial-gradient(circle at top right, rgba(30, 58, 138, 0.08), transparent 24%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at top right, rgba(0, 194, 184, 0.1), transparent 26%);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-soft);
+}
+
+.grid-fade {
+  background-image:
+    linear-gradient(rgba(15, 76, 129, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 76, 129, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(54px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.aurora-one {
+  background: rgba(0, 194, 184, 0.28);
+}
+
+.aurora-two {
+  background: rgba(15, 76, 129, 0.18);
+}
+
+.aurora-three {
+  background: rgba(255, 179, 0, 0.14);
+}
+
+.glass-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.82));
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(18px);
+}
+
+.metric-card {
+  background:
+    radial-gradient(circle at top right, rgba(0, 194, 184, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+}
+
+.step-dot {
+  box-shadow: 0 0 0 6px rgba(0, 194, 184, 0.12);
+}
+
+.soft-divider {
+  border-color: rgba(148, 163, 184, 0.18);
 }

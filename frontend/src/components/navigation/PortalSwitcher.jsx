@@ -1,7 +1,6 @@
 import { NavLink } from "react-router-dom";
 
 const portals = [
-  { label: "Admin", to: "/auth/admin/login" },
   { label: "Entity", to: "/auth/entity/login" },
   { label: "Customer", to: "/customer/login" },
 ];

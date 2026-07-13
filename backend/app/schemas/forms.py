@@ -31,7 +31,7 @@ class PublishFormRequest(BaseModel):
 
 
 class SubmissionCreate(BaseModel):
-    entityId: UUID
+    entityId: UUID | None = None
     data: JsonDict
 
 

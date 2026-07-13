@@ -12,6 +12,9 @@ export const entityService = {
     const params = entityId ? { entity_id: entityId } : {};
     return apiClient.post("/entity/forms", payload, { params });
   },
+  getFormDetail(formId) {
+    return apiClient.get(`/entity/forms/${formId}`);
+  },
   updateForm(formId, payload) {
     return apiClient.patch(`/entity/forms/${formId}`, payload);
   },

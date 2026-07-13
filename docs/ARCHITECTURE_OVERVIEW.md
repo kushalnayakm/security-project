@@ -1,3 +1,4 @@
+
 # Architecture Overview
 
 This document describes the design patterns, layer divisions, file layout, and data models of the Customer Registration & Certificate Management System.
@@ -25,18 +26,22 @@ backend/
 ```
 
 ### Presentation Layer (`api/v1/`)
+
 Processes incoming HTTP requests, maps requests to Pydantic schemas, delegates business operations to services, and packages responses:
-* [auth.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/auth.py): Endpoint routes for logging in admins, requesting entity OTPs, and logging in customers.
-* [entity.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/entity.py): Form creation, update, publication, deletion, QR code actions, and registered customer lists.
-* [public.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/public.py): Public form configuration retrieval and submission processing (with active/published validations).
-* [customer.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/customer.py): Logged-in customer submission and certificate lookups.
-* [admin.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/admin.py): Administrative functions for entities, branch management/lookups, and logs.
+
+* [auth.py](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/auth.py>): Endpoint routes for logging in admins, requesting entity OTPs, and logging in customers.
+* [entity.py](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/entity.py>): Form creation, update, publication, deletion, QR code actions, and registered customer lists.
+* [public.py](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/public.py>): Public form configuration retrieval and submission processing (with active/published validations).
+* [customer.py](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/customer.py>): Logged-in customer submission and certificate lookups.
+* [admin.py](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/api/v1/admin.py>): Administrative functions for entities, branch management/lookups, and logs.
 
 ### Business Service Layer (`services/`)
+
 Orchestrates application logic. Operates directly on database models:
-* [auth_service.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/services/auth_service.py): Resolves admin codes/usernames, tracks OTP verifications, and creates role-specific JWT tokens.
-* [entity_service.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/services/entity_service.py): Saves dynamic form fields, maps form submissions, and associates `User` and `EntityUser` records.
-* [customer_service.py](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/services/customer_service.py): Gathers customer form answers and maps certificate availability.
+
+* [auth_service.py](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/services/auth_service.py>): Resolves admin codes/usernames, tracks OTP verifications, and creates role-specific JWT tokens.
+* [entity_service.py](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/services/entity_service.py>): Saves dynamic form fields, maps form submissions, and associates `User` and `EntityUser` records.
+* [customer_service.py](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/backend/app/services/customer_service.py>): Gathers customer form answers and maps certificate availability.
 
 ---
 
@@ -58,10 +63,11 @@ frontend/
 ```
 
 ### Session Authorization & Request Interceptor
-* **Admin / Entity**: Sessions are managed globally through `AuthContext`. Tokens are persisted in `localStorage`. 
+
+* **Admin / Entity**: Sessions are managed globally through `AuthContext`. Tokens are persisted in `localStorage`.
 * **Customer**: Sessions are managed locally via `sessionStorage` (with key `customer_session`). Because customer JWTs are short-lived and represent passwordless lookups, isolating them prevents cross-contamination of credentials.
-* **Axios Request Interceptor**: The global interceptor in [client.js](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/frontend/src/services/api/client.js) automatically injects the active Admin/Entity token. To prevent overwriting manually supplied headers (like the customer dashboard requests), the interceptor first checks if an `Authorization` header is already defined on the config before applying defaults.
-* **Programmatic Downloads**: PDF file downloading uses the custom [download.js](file:///Users/saicharanbk/Documents/Github%20Projects/security-project/frontend/src/utils/download.js) utility. This converts base64 Data URIs into binary Blobs and triggers downloads programmatically, resolving browser-level data frame security blockages.
+* **Axios Request Interceptor**: The global interceptor in [client.js](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/frontend/src/services/api/client.js>) automatically injects the active Admin/Entity token. To prevent overwriting manually supplied headers (like the customer dashboard requests), the interceptor first checks if an `Authorization` header is already defined on the config before applying defaults.
+* **Programmatic Downloads**: PDF file downloading uses the custom [download.js](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/frontend/src/utils/download.js>) utility. This converts base64 Data URIs into binary Blobs and triggers downloads programmatically, resolving browser-level data frame security blockages.
 
 ---
 

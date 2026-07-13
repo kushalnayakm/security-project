@@ -8,7 +8,6 @@ import { Input } from "../../components/ui/Input";
 import { SectionHeading } from "../../components/ui/SectionHeading";
 import { useToast } from "../../context/ToastContext";
 import { entityService } from "../../services/entityService";
-import { publicService } from "../../services/publicService";
 
 function createEmptyField(order = 0) {
   return {
@@ -35,7 +34,7 @@ export function EntityFormsPage() {
   async function handleEdit(formId) {
     try {
       showToast({ title: "Loading form...", description: "Fetching form structure." });
-      const response = await publicService.getForm(formId);
+      const response = await entityService.getFormDetail(formId);
       const data = response.data.data;
       setEditingFormId(formId);
       setDraft({

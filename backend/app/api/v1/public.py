@@ -16,6 +16,17 @@ router = APIRouter(prefix="/public")
 entity_service = EntityService()
 
 
+def _serialize_field(field: FormField) -> dict:
+    return {
+        "field_id": str(field.field_id),
+        "label": field.label,
+        "type": field.type,
+        "is_required": field.is_required,
+        "options": field.options,
+        "field_order": field.field_order,
+    }
+
+
 @router.get("/forms/{form_id}")
 async def get_form(form_id: UUID, session: AsyncSession = Depends(get_db)) -> dict:
     from app.models.qr_code import QrCode
@@ -28,17 +39,7 @@ async def get_form(form_id: UUID, session: AsyncSession = Depends(get_db)) -> di
             detail="This registration form is currently unpublished and cannot be accessed."
         )
     fields_raw = (await session.execute(select(FormField).where(FormField.form_id == form_id).order_by(FormField.field_order))).scalars().all()
-    fields = [
-        {
-            "field_id": str(f.field_id),
-            "label": f.label,
-            "type": f.type,
-            "is_required": f.is_required,
-            "options": f.options,
-            "field_order": f.field_order,
-        }
-        for f in fields_raw
-    ]
+    fields = [_serialize_field(field) for field in fields_raw]
     
     qr = await session.scalar(select(QrCode).where(QrCode.form_id == form_id))
     welcome = {
@@ -68,6 +69,6 @@ async def submit_form(form_id: UUID, payload: SubmissionCreate, session: AsyncSe
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This registration form is currently unpublished and cannot accept submissions."
         )
-    result = await entity_service.submit_form(session, str(form_id), str(payload.entityId), payload.data)
+    result = await entity_service.submit_form(session, str(form_id), str(form.entity_id), payload.data)
     result["message"] = "Save this Unique ID to check your submission or certificate later."
     return success_response(result)

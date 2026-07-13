@@ -25,6 +25,21 @@ auth_service = AuthService()
 logger = logging.getLogger(__name__)
 
 
+def _can_access_entity(actor: dict, entity_id: str | None) -> bool:
+    return actor.get("role") == "ADMIN" or actor.get("entity_id") == entity_id
+
+
+def _serialize_field(field: FormField) -> dict:
+    return {
+        "field_id": str(field.field_id),
+        "label": field.label,
+        "type": field.type,
+        "is_required": field.is_required,
+        "options": field.options,
+        "field_order": field.field_order,
+    }
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_entity(payload: EntityRegisterRequest, session: AsyncSession = Depends(get_db)) -> dict:
     logger.info("Request received for entity registration")
@@ -82,11 +97,44 @@ async def create_form(payload: DynamicFormCreate, entity_id: str | None = None, 
     return success_response({"form_id": form.form_id})
 
 
-@router.patch("/forms/{form_id}", dependencies=[Depends(require_entity_staff)])
-async def update_form(form_id: str, payload: DynamicFormUpdate, session: AsyncSession = Depends(get_db)) -> dict:
+@router.get("/forms/{form_id}", dependencies=[Depends(require_entity_staff)])
+async def get_form_detail(
+    form_id: str,
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
     form = await session.get(DynamicForm, form_id)
     if form is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found with this ID.")
+    if not _can_access_entity(actor, str(form.entity_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to access this form.")
+
+    fields = (
+        await session.execute(select(FormField).where(FormField.form_id == form.form_id).order_by(FormField.field_order))
+    ).scalars().all()
+
+    return success_response({
+        "form_id": str(form.form_id),
+        "entity_id": str(form.entity_id),
+        "title": form.title,
+        "description": form.description,
+        "isActive": form.is_active,
+        "fields": [_serialize_field(field) for field in fields],
+    })
+
+
+@router.patch("/forms/{form_id}", dependencies=[Depends(require_entity_staff)])
+async def update_form(
+    form_id: str,
+    payload: DynamicFormUpdate,
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
+    form = await session.get(DynamicForm, form_id)
+    if form is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found with this ID.")
+    if not _can_access_entity(actor, str(form.entity_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to update this form.")
     data = payload.model_dump(exclude_none=True)
     if "title" in data:
         form.title = data["title"]
@@ -99,20 +147,34 @@ async def update_form(form_id: str, payload: DynamicFormUpdate, session: AsyncSe
 
 
 @router.post("/forms/{form_id}/publish", dependencies=[Depends(require_entity_staff)])
-async def publish_form(form_id: str, payload: PublishFormRequest, session: AsyncSession = Depends(get_db)) -> dict:
+async def publish_form(
+    form_id: str,
+    payload: PublishFormRequest,
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
     form = await session.get(DynamicForm, form_id)
     if form is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found with this ID.")
+    if not _can_access_entity(actor, str(form.entity_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to publish this form.")
     form.is_active = payload.isActive
     await session.commit()
     return success_response({"form_id": form.form_id, "isActive": form.is_active})
 
 
 @router.post("/forms/{form_id}/qr-code", dependencies=[Depends(require_entity_staff)], status_code=status.HTTP_201_CREATED)
-async def generate_qr_code(form_id: str, base_url: str = "http://localhost:5173", session: AsyncSession = Depends(get_db)) -> dict:
+async def generate_qr_code(
+    form_id: str,
+    base_url: str = "http://localhost:5173",
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
     form = await session.get(DynamicForm, form_id)
     if form is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found with this ID.")
+    if not _can_access_entity(actor, str(form.entity_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to manage this QR code.")
 
     target_url = f"{base_url.rstrip('/')}/form/{form_id}"
     qr_image_data_uri = generate_qr_image(target_url)
@@ -150,7 +212,17 @@ async def generate_qr_code(form_id: str, base_url: str = "http://localhost:5173"
 
 
 @router.get("/forms/{form_id}/qr-code", dependencies=[Depends(require_entity_staff)])
-async def get_qr_code(form_id: str, session: AsyncSession = Depends(get_db)) -> dict:
+async def get_qr_code(
+    form_id: str,
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
+    form = await session.get(DynamicForm, form_id)
+    if form is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found with this ID.")
+    if not _can_access_entity(actor, str(form.entity_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to view this QR code.")
+
     qr = await session.scalar(select(QrCode).where(QrCode.form_id == UUID(form_id)))
     if qr is None:
         return success_response({"form_id": form_id, "qrImageUrl": None, "qrCodeData": None})
@@ -167,7 +239,18 @@ async def get_qr_code(form_id: str, session: AsyncSession = Depends(get_db)) -> 
 
 
 @router.post("/forms/{form_id}/welcome", dependencies=[Depends(require_entity_staff)])
-async def update_welcome_settings(form_id: str, payload: WelcomeUpdateRequest, session: AsyncSession = Depends(get_db)) -> dict:
+async def update_welcome_settings(
+    form_id: str,
+    payload: WelcomeUpdateRequest,
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
+    form = await session.get(DynamicForm, form_id)
+    if form is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found with this ID.")
+    if not _can_access_entity(actor, str(form.entity_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to update welcome settings for this form.")
+
     qr = await session.scalar(select(QrCode).where(QrCode.form_id == UUID(form_id)))
     if qr is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="QR Code settings not found for this form. Please generate a QR code first.")
@@ -189,11 +272,21 @@ async def update_welcome_settings(form_id: str, payload: WelcomeUpdateRequest, s
 
 
 @router.get("/forms/{form_id}/submissions", dependencies=[Depends(require_entity_staff)])
-async def get_form_submissions(form_id: str, session: AsyncSession = Depends(get_db)) -> dict:
+async def get_form_submissions(
+    form_id: str,
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
     from app.models.customer import Customer
     from app.models.certificate import Certificate
     from app.models.form_field import FormField
-    
+
+    form = await session.get(DynamicForm, form_id)
+    if form is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found with this ID.")
+    if not _can_access_entity(actor, str(form.entity_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to view these submissions.")
+
     fields = (
         await session.execute(select(FormField).where(FormField.form_id == UUID(form_id)))
     ).scalars().all()
@@ -233,17 +326,41 @@ async def get_form_submissions(form_id: str, session: AsyncSession = Depends(get
 
 
 @router.get("/submissions/{submission_id}", dependencies=[Depends(require_entity_staff)])
-async def get_submission(submission_id: str, session: AsyncSession = Depends(get_db)) -> dict:
+async def get_submission(
+    submission_id: str,
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
     submission = await session.get(FormSubmission, submission_id)
     if submission is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found.")
+    form = await session.get(DynamicForm, submission.form_id)
+    if form is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found for this submission.")
+    if not _can_access_entity(actor, str(form.entity_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to view this submission.")
     fields = (await session.execute(select(FormField).where(FormField.form_id == submission.form_id))).scalars().all()
     return success_response({"submission": submission, "fields": fields})
 
 
 @router.post("/submissions/{submission_id}/certificate", dependencies=[Depends(require_entity_staff)], status_code=status.HTTP_201_CREATED)
-async def generate_certificate(submission_id: str, payload: CertificateCreate, session: AsyncSession = Depends(get_db)) -> dict:
+async def generate_certificate(
+    submission_id: str,
+    payload: CertificateCreate,
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
     from app.models.certificate import Certificate
+
+    submission = await session.get(FormSubmission, submission_id)
+    if submission is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found.")
+    form = await session.get(DynamicForm, submission.form_id)
+    if form is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No form found for this submission.")
+    if not _can_access_entity(actor, str(form.entity_id)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to issue this certificate.")
+
     existing = await session.scalar(select(Certificate).where(Certificate.submission_id == submission_id))
     if existing:
         existing.pdf_url = payload.pdfUrl

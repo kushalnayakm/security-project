@@ -3,6 +3,7 @@
 Implement the client-side screens and integration endpoints to support entity direct signup, GST document upload, and sub-branch management from inside the Entity Portal.
 
 ## 1. Direct Entity Sign Up (`/auth/entity/signup`)
+
 - [ ] Create signup routing and link it from the entity login page.
 - [ ] Build the registration form containing:
   - Organization Name
@@ -19,6 +20,7 @@ Implement the client-side screens and integration endpoints to support entity di
 - [ ] Handle validation rules (e.g. required fields, email format, password strength).
 
 ## 2. Branch Registration Dashboard (`/entity/branches`)
+
 - [ ] Add "Branches" management tab/section inside the Entity Portal.
 - [ ] Build sub-branch creation dialog/modal containing:
   - Branch Name
@@ -31,6 +33,7 @@ Implement the client-side screens and integration endpoints to support entity di
 - [ ] Display a cards layout or a table listing all sub-branches under the organization.
 
 ## 3. Scoping & Verification View Updates
+
 - [ ] Update Entity Profile Screen to display the registered GST document download/view link.
 - [ ] Update form builder, customer list, and QR code screens to allow the owner to select branch scope:
   - A dropdown filter showing `"All Branches"` or individual branch names.
