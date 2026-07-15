@@ -2,6 +2,7 @@ from app.models.admin import Admin
 from app.models.audit_log import AuditLog
 from app.models.certificate import Certificate
 from app.models.customer import Customer
+from app.models.document import Document
 from app.models.dynamic_form import DynamicForm
 from app.models.entity import Entity
 from app.models.entity_user import EntityUser
@@ -15,6 +16,7 @@ __all__ = [
     "AuditLog",
     "Certificate",
     "Customer",
+    "Document",
     "DynamicForm",
     "Entity",
     "EntityUser",

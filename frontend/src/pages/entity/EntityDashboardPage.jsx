@@ -1,126 +1,130 @@
-import { useEffect, useState } from "react";
-
-import { Card } from "../../components/ui/Card";
-import { SectionHeading } from "../../components/ui/SectionHeading";
 import { useAuth } from "../../context/AuthContext";
-import { entityService } from "../../services/entityService";
 
 export function EntityDashboardPage() {
-  const { session } = useAuth();
-  const entity = session?.profile || {};
-  const populatedCount = Object.values(entity).filter(Boolean).length;
-  const completion = Math.min(100, Math.round((populatedCount / 6) * 100));
-
-  const [submissions, setSubmissions] = useState([]);
-  const [formCount, setFormCount] = useState(0);
-
-  async function loadSubmissions() {
-    try {
-      const formsRes = await entityService.getForms();
-      const forms = formsRes.data.data?.existingForms || [];
-      setFormCount(forms.length);
-
-      const allSubmissions = [];
-      for (const form of forms) {
-        try {
-          const subRes = await entityService.getSubmissions(form.form_id);
-          const subs = subRes.data.data || [];
-          subs.forEach((s) => allSubmissions.push({ ...s, formTitle: form.title }));
-        } catch {
-          // Skip forms that fail
-        }
-      }
-
-      // Sort by submitted_at descending
-      allSubmissions.sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
-      setSubmissions(allSubmissions);
-    } catch {
-      // Silently fail
-    }
-  }
-
-  useEffect(() => {
-    loadSubmissions();
-
-    // Poll every 30 seconds for new submissions
-    const interval = setInterval(loadSubmissions, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const cards = [
-    ["Active Forms", formCount || "0"],
-    ["Total Submissions", submissions.length || "0"],
-    ["Certificates Issued", "Certificate management available"],
-    ["Profile Completion", `${completion}%`],
-  ];
+  const { entity, logout } = useAuth();
 
   return (
-    <div className="space-y-8">
-      <SectionHeading
-        eyebrow="Entity Workspace"
-        title={`Welcome${entity.name ? `, ${entity.name}` : ""}`}
-        description="Your login is authenticated through GST number, phone number, and OTP. Use this workspace to access assigned QR details, certificate actions, and your registered profile information."
-      />
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <div style={styles.headerLeft}>
+          <h1 style={styles.logo}>DID</h1>
+          <span style={styles.entityName}>{entity?.name || "Entity Dashboard"}</span>
+        </div>
+        <button onClick={logout} style={styles.logoutBtn}>
+          Logout
+        </button>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {cards.map(([label, value]) => (
-          <Card key={label} className="p-6">
-            <p className="text-sm text-slate-500">{label}</p>
-            <p className="mt-4 text-xl font-semibold text-blue-900">{value}</p>
-          </Card>
-        ))}
-      </div>
-
-      {/* Recent Submissions Feed */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-blue-900">Recent Submissions</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Live feed of customer form submissions — auto-refreshes every 30 seconds.
-            </p>
-          </div>
-          <button
-            onClick={loadSubmissions}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-          >
-            Refresh
-          </button>
+      <main style={styles.main}>
+        <div style={styles.welcome}>
+          <h2>Welcome back</h2>
+          <p>Manage your forms, submissions, and certificates</p>
         </div>
 
-        <div className="mt-6 space-y-3">
-          {submissions.length > 0 ? (
-            submissions.slice(0, 20).map((sub) => (
-              <div
-                key={sub.submission_id}
-                className="flex flex-col gap-3 rounded-3xl border border-slate-200 p-5 transition hover:border-slate-300 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-                      {sub.unique_id || "N/A"}
-                    </span>
-                    <span className="text-sm text-slate-500">{sub.formTitle}</span>
-                  </div>
-                  {sub.customer_name ? (
-                    <p className="mt-2 text-sm font-medium text-blue-900">{sub.customer_name}</p>
-                  ) : null}
-                </div>
-                <p className="text-xs text-slate-400">
-                  {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString() : "Unknown"}
-                </p>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-              <p className="text-sm text-slate-500">No submissions yet.</p>
-              <p className="mt-2 text-sm text-slate-400">
-                Share your QR code with customers to start receiving form submissions.
-              </p>
-            </div>
-          )}
+        <div style={styles.grid}>
+          <Link to="/entity/forms" style={styles.card}>
+            <div style={styles.cardIcon}>📋</div>
+            <h3>Forms</h3>
+            <p>Create and manage registration forms</p>
+          </Link>
+
+          <Link to="/entity/customers" style={styles.card}>
+            <div style={styles.cardIcon}>👥</div>
+            <h3>Customers</h3>
+            <p>View customer submissions</p>
+          </Link>
+
+          <Link to="/entity/qr" style={styles.card}>
+            <div style={styles.cardIcon}>📱</div>
+            <h3>QR Codes</h3>
+            <p>Generate QR codes for forms</p>
+          </Link>
+
+          <Link to="/entity/certificates" style={styles.card}>
+            <div style={styles.cardIcon}>📜</div>
+            <h3>Certificates</h3>
+            <p>Issue and manage certificates</p>
+          </Link>
         </div>
-      </Card>
+      </main>
     </div>
   );
 }
+
+const styles = {
+  container: {
+    minHeight: "100vh",
+    background: "#f1f5f9",
+    display: "flex",
+    flexDirection: "column",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "1rem 2rem",
+    background: "white",
+    borderBottom: "1px solid #e2e8f0",
+  },
+  headerLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "1rem",
+  },
+  logo: {
+    fontSize: "1.5rem",
+    fontWeight: "bold",
+    color: "#1e3a8a",
+    margin: 0,
+  },
+  entityName: {
+    fontSize: "1rem",
+    color: "#64748b",
+    background: "#f1f5f9",
+    padding: "0.25rem 0.75rem",
+    borderRadius: "9999px",
+  },
+  logoutBtn: {
+    padding: "0.5rem 1rem",
+    background: "transparent",
+    color: "#64748b",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+  main: {
+    flex: 1,
+    padding: "2rem",
+    maxWidth: "900px",
+    width: "100%",
+    margin: "0 auto",
+  },
+  welcome: {
+    textAlign: "center",
+    marginBottom: "2rem",
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: "1.5rem",
+  },
+  card: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    padding: "2rem 1.5rem",
+    background: "white",
+    borderRadius: "12px",
+    border: "1px solid #e2e8f0",
+    textDecoration: "none",
+    color: "inherit",
+    transition: "all 0.2s",
+  },
+  cardIcon: {
+    fontSize: "2.5rem",
+    marginBottom: "1rem",
+  },
+};

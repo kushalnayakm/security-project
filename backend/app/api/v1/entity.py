@@ -1,7 +1,6 @@
 import logging
 from uuid import UUID
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +14,7 @@ from app.schemas.entity import EntityRegisterRequest, BranchCreate
 from app.schemas.forms import CertificateCreate, DynamicFormCreate, DynamicFormUpdate, PublishFormRequest, WelcomeUpdateRequest
 from app.services.auth_service import AuthService
 from app.services.entity_service import EntityService
+from app.utils.upload import save_upload_file
 from app.utils.qr_generator import generate_qr_image
 from app.utils.responses import success_response
 
@@ -41,13 +41,140 @@ def _serialize_field(field: FormField) -> dict:
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register_entity(payload: EntityRegisterRequest, session: AsyncSession = Depends(get_db)) -> dict:
+async def register_entity(
+    # Entity Info (Step 1)
+    name: str = Form(...),
+    gstNo: str = Form(...),
+    gstDoc: UploadFile | None = File(None),
+    businessType: str | None = Form(None),
+    address: str | None = Form(None),
+    contactPerson: str | None = Form(None),
+    phone: str = Form(...),
+    email: str = Form(...),
+    # Personal Details (Step 2)
+    firstName: str = Form(...),
+    midName: str | None = Form(None),
+    lastName: str = Form(...),
+    fatherName: str | None = Form(None),
+    motherName: str | None = Form(None),
+    spouseName: str | None = Form(None),
+    sex: str = Form(...),
+    dob: str = Form(...),
+    # Entity/Operator/Document (Step 3)
+    entityName: str = Form(...),
+    branchName: str | None = Form(None),
+    entityLogo: UploadFile | None = File(None),
+    operatorPhoto: UploadFile | None = File(None),
+    userDocument: UploadFile | None = File(None),
+    session: AsyncSession = Depends(get_db)
+) -> dict:
     logger.info("Request received for entity registration")
+    
+    # Save files to disk first
+    gst_doc_path = None
+    gst_doc_original = None
+    gst_doc_size = None
+    gst_doc_mime = None
+    if gstDoc:
+        gst_doc_path = await save_upload_file(gstDoc)
+        gst_doc_original = gstDoc.filename
+        gst_doc_size = gstDoc.size
+        gst_doc_mime = gstDoc.content_type
+    
+    entity_logo_path = None
+    entity_logo_original = None
+    entity_logo_size = None
+    entity_logo_mime = None
+    if entityLogo:
+        entity_logo_path = await save_upload_file(entityLogo)
+        entity_logo_original = entityLogo.filename
+        entity_logo_size = entityLogo.size
+        entity_logo_mime = entityLogo.content_type
+    
+    operator_photo_path = None
+    operator_photo_original = None
+    operator_photo_size = None
+    operator_photo_mime = None
+    if operatorPhoto:
+        operator_photo_path = await save_upload_file(operatorPhoto)
+        operator_photo_original = operatorPhoto.filename
+        operator_photo_size = operatorPhoto.size
+        operator_photo_mime = operatorPhoto.content_type
+    
+    user_document_path = None
+    user_document_original = None
+    user_document_size = None
+    user_document_mime = None
+    if userDocument:
+        user_document_path = await save_upload_file(userDocument)
+        user_document_original = userDocument.filename
+        user_document_size = userDocument.size
+        user_document_mime = userDocument.content_type
+
+    # Call the updated register_entity service which no longer needs password
+    from app.schemas.entity import EntityRegisterRequest
+    payload = EntityRegisterRequest(
+        name=name,
+        gstNo=gstNo,
+        gstDocUrl=gst_doc_path,
+        businessType=businessType,
+        address=address,
+        contactPerson=contactPerson,
+        phone=phone,
+        email=email,
+        password="",  # Empty password - OTP based auth
+    )
+    # Add extra fields that the service might need
+    payload_dict = payload.model_dump()
+    payload_dict.update({
+        "firstName": firstName,
+        "midName": midName,
+        "lastName": lastName,
+        "fatherName": fatherName,
+        "motherName": motherName,
+        "spouseName": spouseName,
+        "sex": sex,
+        "dob": dob,
+        "entityName": entityName,
+        "branchName": branchName,
+        "entityLogoUrl": entity_logo_path,
+        "operatorPhotoUrl": operator_photo_path,
+        "userDocumentUrl": user_document_path,
+    })
+    
     logger.info("Entity registration request model: %s", payload)
     logger.info("Validation successful for entity registration")
-    logger.info("Entity registration password type: %s", type(payload.password).__name__)
-    logger.info("Entity registration password length: %s", len(payload.password))
-    result = await auth_service.register_entity(session, payload)
+    result = await auth_service.register_entity(session, payload_dict)
+    
+    # Save document records to database with entity_id and user_id
+    entity_id = result.get("entity_id")
+    user_id = result.get("user_id")
+    
+    if entity_id and user_id:
+        from app.utils.upload import save_document_record
+        from app.models.document import Document
+        
+        if gst_doc_path:
+            await save_document_record(
+                session, entity_id, user_id, "gst_document",
+                gst_doc_path, gst_doc_original, gst_doc_size, gst_doc_mime
+            )
+        if entity_logo_path:
+            await save_document_record(
+                session, entity_id, user_id, "entity_logo",
+                entity_logo_path, entity_logo_original, entity_logo_size, entity_logo_mime
+            )
+        if operator_photo_path:
+            await save_document_record(
+                session, entity_id, user_id, "operator_photo",
+                operator_photo_path, operator_photo_original, operator_photo_size, operator_photo_mime
+            )
+        if user_document_path:
+            await save_document_record(
+                session, entity_id, user_id, "user_document",
+                user_document_path, user_document_original, user_document_size, user_document_mime
+            )
+    
     return success_response(result)
 
 

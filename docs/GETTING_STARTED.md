@@ -70,6 +70,7 @@ python backend/setup_db.py
 ### Run Backend (FastAPI)
 
 #### Option A: Using `uv` (Recommended - Lightning Fast)
+
 ```bash
 cd backend
 uv venv
@@ -78,6 +79,7 @@ uv run uvicorn app.main:app --reload
 ```
 
 #### Option B: Standard Python `venv`
+
 ```bash
 cd backend
 python -m venv .venv

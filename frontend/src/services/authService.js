@@ -1,22 +1,39 @@
 import { apiClient } from "./api/client";
 
 export const authService = {
-  adminLogin(payload) {
-    return apiClient.post("/auth/admin/login", payload);
+  // Entity OTP login
+  async requestEntityOtp(gstNo, phone) {
+    return apiClient.post("/auth/entity/login/request-otp", { gst_no: gstNo, phone });
   },
-  forgotAdminCode(payload) {
-    return apiClient.post("/auth/admin/forgot-id", payload);
+
+  async verifyEntityOtp(gstNo, phone, otp) {
+    return apiClient.post("/auth/entity/login/verify-otp", { gst_no: gstNo, phone, otp });
   },
-  requestEntityOtp(payload) {
-    return apiClient.post("/auth/entity/login/request-otp", payload);
+
+  // Entity registration OTP
+  async requestRegistrationOtp(phone) {
+    return apiClient.post("/auth/entity/register/request-otp", { phone });
   },
-  verifyEntityOtp(payload) {
-    return apiClient.post("/auth/entity/login/verify-otp", payload);
+
+  async verifyRegistrationOtp(phone, otp) {
+    return apiClient.post("/auth/entity/register/verify-otp", { phone, otp });
   },
-  customerLogin(payload) {
-    return apiClient.post("/auth/customer/login", payload);
+
+  // Entity registration
+  async registerEntity(payload) {
+    const isFormData = payload instanceof FormData;
+    return apiClient.post("/entity/register", payload, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+    });
   },
-  logout() {
-    return apiClient.post("/auth/logout");
+
+  // Admin login
+  async loginAdmin(adminId, password) {
+    return apiClient.post("/auth/admin/login", { admin_id: adminId, password });
+  },
+
+  // Customer login
+  async loginCustomer(uniqueId) {
+    return apiClient.post("/auth/customer/login", { unique_id: uniqueId });
   },
 };

@@ -1,47 +1,71 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-
-import { registerAuthHandlers } from "../services/api/client";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { authService } from "../services/authService";
-import {
-  clearStoredSession,
-  readStoredSession,
-  writeStoredSession,
-} from "../utils/storage";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const navigate = useNavigate();
-  const [session, setSession] = useState(() => readStoredSession());
+  const [token, setToken] = useState(null);
+  const [entity, setEntity] = useState(null);
+  const [role, setRole] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const initializeAuth = useCallback(async () => {
+    const storedToken = localStorage.getItem("token");
+    const storedEntity = localStorage.getItem("entity");
+    const storedRole = localStorage.getItem("role");
+
+    if (storedToken && storedEntity && storedRole) {
+      setToken(storedToken);
+      setEntity(JSON.parse(storedEntity));
+      setRole(storedRole);
+    }
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    registerAuthHandlers({
-      getToken: () => session?.token ?? null,
-      onUnauthorized: () => {
-        clearStoredSession();
-        setSession(null);
-        navigate("/auth/admin/login");
-      },
-    });
-  }, [navigate, session]);
+    initializeAuth();
+  }, [initializeAuth]);
+
+  const loginWithOtp = async (gstNo, phone, otp) => {
+    const res = await authService.verifyEntityOtp(gstNo, phone, otp);
+    setToken(res.token);
+    setEntity(res.entity);
+    setRole(res.role);
+    localStorage.setItem("token", res.token);
+    localStorage.setItem("entity", JSON.stringify(res.entity));
+    localStorage.setItem("role", res.role);
+    return res;
+  };
+
+  const requestOtp = async (gstNo, phone) => {
+    return authService.requestEntityOtp(gstNo, phone);
+  };
+
+  const register = async (payload) => {
+    return authService.registerEntity(payload);
+  };
+
+  const logout = () => {
+    setToken(null);
+    setEntity(null);
+    setRole(null);
+    localStorage.removeItem("token");
+    localStorage.removeItem("entity");
+    localStorage.removeItem("role");
+  };
 
   const value = {
-    session,
-    login(nextSession) {
-      writeStoredSession(nextSession);
-      setSession(nextSession);
-    },
-    async logout() {
-      try {
-        await authService.logout();
-      } catch {
-        // Clearing the session locally keeps the app recoverable.
-      }
-      clearStoredSession();
-      setSession(null);
-      navigate("/auth/admin/login");
-    },
+    token,
+    entity,
+    role,
+    loading,
+    loginWithOtp,
+    requestOtp,
+    register,
+    logout,
+    isAuthenticated: !!token,
+    isEntityStaff: role === "ENTITY_STAFF",
+    isAdmin: role === "ADMIN",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -50,7 +74,7 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

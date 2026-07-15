@@ -39,6 +39,16 @@ class EntityOtpVerifyRequest(BaseModel):
     otp: str
 
 
+class EntityRegisterOtpRequest(BaseModel):
+    phone: str
+    gst_no: str | None = None
+
+
+class EntityRegisterOtpVerifyRequest(BaseModel):
+    phone: str
+    otp: str
+
+
 class CustomerLoginRequest(BaseModel):
     unique_id: str
 

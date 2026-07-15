@@ -1,47 +1,54 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-
-import { AppShell } from "../layouts/AppShell";
-import { CustomerLoginPage } from "../pages/customer/CustomerLoginPage";
-import { CustomerDashboardPage } from "../pages/customer/CustomerDashboardPage";
-import { EntityCertificatesPage } from "../pages/entity/EntityCertificatesPage";
-import { EntityCustomersPage } from "../pages/entity/EntityCustomersPage";
-import { EntityDashboardPage } from "../pages/entity/EntityDashboardPage";
-import { EntityFormsPage } from "../pages/entity/EntityFormsPage";
-import { EntityProfilePage } from "../pages/entity/EntityProfilePage";
-import { EntityQrPage } from "../pages/entity/EntityQrPage";
-import { PublicFormPage } from "../pages/public/PublicFormPage";
-import { EntityLandingPage } from "../pages/auth/EntityLandingPage";
+import { Route, Routes, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "../context/AuthContext";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { PublicFormPage } from "../pages/public/PublicFormPage";
+import { EntityLoginPage } from "../pages/auth/EntityLoginPage";
+import { EntityRegisterPage } from "../pages/auth/EntityRegisterPage";
+import { EntityHomePage } from "../pages/entity/EntityHomePage";
+import { EntityDashboardPage } from "../pages/entity/EntityDashboardPage";
 
-export function AppRoutes() {
+function AppRoutesInner() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <Routes>
-      <Route
-        path="/auth/entity/login"
-        element={<EntityLandingPage />}
-      />
-
-      {/* Public form page — no auth required */}
+      {/* Public routes */}
       <Route path="/form/:formId" element={<PublicFormPage />} />
+      <Route path="/auth/entity/login" element={<EntityLoginPage />} />
+      <Route path="/auth/entity/register" element={<EntityRegisterPage />} />
 
-      {/* Customer portal — standalone auth */}
-      <Route path="/customer/login" element={<CustomerLoginPage />} />
-      <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
-      <Route path="/customer" element={<Navigate to="/customer/login" replace />} />
+      {/* Entity home page - accessible without auth but shows login/register */}
+      <Route path="/" element={<EntityHomePage />} />
 
-      <Route element={<ProtectedRoute portal="entity" />}>
-        <Route element={<AppShell />}>
-          <Route path="/entity/dashboard" element={<EntityDashboardPage />} />
-          <Route path="/entity/forms" element={<EntityFormsPage />} />
-          <Route path="/entity/qr" element={<EntityQrPage />} />
-          <Route path="/entity/customers" element={<EntityCustomersPage />} />
-          <Route path="/entity/certificates" element={<EntityCertificatesPage />} />
-          <Route path="/entity/profile" element={<EntityProfilePage />} />
-        </Route>
+      {/* Protected entity routes */}
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={["ENTITY_STAFF", "ADMIN"]}>
+            <EntityDashboardPage />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="entity/dashboard" element={<EntityDashboardPage />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/auth/entity/login" replace />} />
+      {/* Catch all - redirect to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
+export function AppRoutes() {
+  return (
+    <AuthProvider>
+      <AppRoutesInner />
+    </AuthProvider>
+  );
+}

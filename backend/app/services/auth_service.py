@@ -226,6 +226,46 @@ class AuthService:
 
         return {"token": token, "entity": entity, "role": user.role}
 
+    async def request_registration_otp(self, session: AsyncSession, phone: str) -> dict:
+        """Generate and store OTP for entity registration (phone-only, no entity yet)."""
+        # Check if phone is already registered
+        existing_user = await session.scalar(
+            select(User).where(User.phone == phone, User.role == "ENTITY_STAFF")
+        )
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number already registered."
+            )
+
+        # Generate OTP
+        otp = await otp_service.generate_otp()
+
+        # Store OTP in Redis with a registration prefix
+        reg_key = f"reg:{phone}"
+        success = await otp_service.store_otp(reg_key, phone, otp)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate OTP. Please try again."
+            )
+
+        masked_phone = otp_service.mask_phone(phone)
+        return {"otp_sent": True, "masked_phone": masked_phone}
+
+    async def verify_registration_otp(self, session: AsyncSession, phone: str, otp: str) -> dict:
+        """Verify OTP for entity registration."""
+        # Verify OTP using Redis with registration prefix
+        reg_key = f"reg:{phone}"
+        otp_valid = await otp_service.verify_otp(reg_key, phone, otp)
+        if not otp_valid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired OTP."
+            )
+
+        return {"verified": True, "phone": phone}
+
     async def login_entity(self, session: AsyncSession, email: str, password: str) -> dict:
         entity = await session.scalar(select(Entity).where(Entity.email == email))
         if entity is None:
@@ -256,25 +296,37 @@ class AuthService:
         )
         return {"token": token, "entity": entity, "role": user.role}
 
-    async def register_entity(self, session: AsyncSession, payload: EntityRegisterRequest) -> dict:
+    async def register_entity(self, session: AsyncSession, payload: dict) -> dict:
         logger.info("Request received in AuthService.register_entity")
         logger.info("Validated entity registration model: %s", payload)
 
-        existing_entity = await session.scalar(select(Entity).where(Entity.email == payload.email))
+        email = payload.get("email")
+        gst_no = payload.get("gstNo")
+        
+        existing_entity = await session.scalar(select(Entity).where(Entity.email == email))
         if existing_entity is not None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Entity email already exists.")
-        if payload.gstNo:
-            existing_gst = await session.scalar(select(Entity).where(Entity.gst_no == payload.gstNo))
+        if gst_no:
+            existing_gst = await session.scalar(select(Entity).where(Entity.gst_no == gst_no))
             if existing_gst is not None:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Entity GST already exists.")
 
+        # Check if phone is already registered
+        phone = payload.get("phone")
+        existing_user = await session.scalar(
+            select(User).where(User.phone == phone, User.role == "ENTITY_STAFF")
+        )
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number already registered."
+            )
+
         try:
-            hashed_password = get_password_hash(payload.password)
-            
             user = User(
-                name=payload.name,
-                password_hash=hashed_password,
-                phone=payload.phone,
+                name=payload.get("name"),
+                password_hash="",  # No password - OTP based auth
+                phone=phone,
                 role="ENTITY_STAFF",
             )
             session.add(user)
@@ -282,16 +334,16 @@ class AuthService:
             logger.info("User created")
 
             entity = Entity(
-                name=payload.name,
+                name=payload.get("name"),
                 parent_entity_id=None,
                 entity_type="MAIN",
-                gst_no=payload.gstNo,
-                gst_doc_url=payload.gstDocUrl,
-                business_type=payload.businessType,
-                address=payload.address,
-                contact_person=payload.contactPerson,
-                phone=payload.phone,
-                email=str(payload.email) if payload.email is not None else None,
+                gst_no=gst_no,
+                gst_doc_url=payload.get("gstDocUrl"),
+                business_type=payload.get("businessType"),
+                address=payload.get("address"),
+                contact_person=payload.get("contactPerson"),
+                phone=phone,
+                email=email,
                 created_by=user.user_id,
                 updated_by=user.user_id,
             )

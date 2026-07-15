@@ -1,302 +1,139 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CheckCircleIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
-
-import { Button } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
-import { Input } from "../../components/ui/Input";
 import { publicService } from "../../services/publicService";
-
-const FIELD_RENDERERS = {
-  TEXT: ({ field, value, onChange }) => (
-    <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={`Enter ${field.label.toLowerCase()}`} />
-  ),
-  NUMBER: ({ field, value, onChange }) => (
-    <Input type="number" value={value} onChange={(e) => onChange(e.target.value)} placeholder={`Enter ${field.label.toLowerCase()}`} />
-  ),
-  DATE: ({ field, value, onChange }) => (
-    <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} />
-  ),
-  EMAIL: ({ field, value, onChange }) => (
-    <Input type="email" value={value} onChange={(e) => onChange(e.target.value)} placeholder="name@example.com" />
-  ),
-  PHONE: ({ field, value, onChange }) => (
-    <Input type="tel" value={value} onChange={(e) => onChange(e.target.value)} placeholder="9876543210" />
-  ),
-  SELECT: ({ field, value, onChange }) => {
-    const options = typeof field.options === "string" ? JSON.parse(field.options) : field.options || [];
-    return (
-      <select
-        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">Select an option</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
-    );
-  },
-  RADIO: ({ field, value, onChange }) => {
-    const options = typeof field.options === "string" ? JSON.parse(field.options) : field.options || [];
-    return (
-      <div className="space-y-2">
-        {options.map((opt) => (
-          <label key={opt} className="flex items-center gap-3 text-sm text-slate-700">
-            <input type="radio" name={field.field_id} checked={value === opt} onChange={() => onChange(opt)} />
-            {opt}
-          </label>
-        ))}
-      </div>
-    );
-  },
-  CHECKBOX: ({ field, value, onChange }) => {
-    const options = typeof field.options === "string" ? JSON.parse(field.options) : field.options || [];
-    const selected = Array.isArray(value) ? value : [];
-    return (
-      <div className="space-y-2">
-        {options.map((opt) => (
-          <label key={opt} className="flex items-center gap-3 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={selected.includes(opt)}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  onChange([...selected, opt]);
-                } else {
-                  onChange(selected.filter((s) => s !== opt));
-                }
-              }}
-            />
-            {opt}
-          </label>
-        ))}
-      </div>
-    );
-  },
-};
 
 export function PublicFormPage() {
   const { formId } = useParams();
-  const [formData, setFormData] = useState(null);
+  const [form, setForm] = useState(null);
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const [showGreeting, setShowGreeting] = useState(false);
 
   useEffect(() => {
     async function loadForm() {
       try {
-        const response = await publicService.getForm(formId);
-        const data = response.data.data;
-        setFormData(data);
-        if (data.welcome?.showWelcome) {
-          setShowGreeting(true);
-        }
-        // Initialize answers
-        const initial = {};
-        (data.fields || []).forEach((field) => {
-          initial[field.field_id] = field.type === "CHECKBOX" ? [] : "";
-        });
-        setAnswers(initial);
+        const res = await publicService.getForm(formId);
+        setForm(res.data.data);
       } catch (err) {
-        const msg = err.response?.data?.detail || "This form could not be found or is no longer available.";
-        setError(msg);
+        setError(err.response?.data?.detail || "Form not found");
       }
     }
     loadForm();
   }, [formId]);
 
-  function updateAnswer(fieldId, value) {
+  const handleChange = (fieldId, value) => {
     setAnswers((prev) => ({ ...prev, [fieldId]: value }));
-  }
+  };
 
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate required fields
-    const missing = (formData.fields || []).filter(
-      (f) => f.is_required && (!answers[f.field_id] || (Array.isArray(answers[f.field_id]) && answers[f.field_id].length === 0))
-    );
-    if (missing.length > 0) {
-      setError(`Please fill in required fields: ${missing.map((f) => f.label).join(", ")}`);
-      return;
-    }
-
-    setSubmitting(true);
     setError(null);
+    setSubmitting(true);
     try {
-      const response = await publicService.submitForm(formId, {
-        entityId: formData.entity_id,
+      const res = await publicService.submitForm(formId, {
+        entityId: form.entity_id,
         data: answers,
       });
-      setResult(response.data.data);
+      setResult(res.data.data);
     } catch (err) {
-      setError(err.message || "Submission failed. Please try again.");
+      setError(err.message || "Submission failed");
     } finally {
       setSubmitting(false);
     }
-  }
+  };
 
-  function handleCopyId() {
-    if (!result?.unique_id) return;
-    navigator.clipboard.writeText(result.unique_id).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-
-  // Error state
-  if (error && !formData) {
+  if (error && !form) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-        <Card className="w-full max-w-lg p-10 text-center">
-          <p className="text-xs uppercase tracking-[0.35em] text-rose-500">Form Unavailable</p>
-          <h1 className="mt-4 text-2xl font-semibold text-blue-900">Oops!</h1>
-          <p className="mt-4 text-sm leading-6 text-slate-600">{error}</p>
-        </Card>
+      <div style="padding:2rem;text-align:center;color:#dc2626">
+        <h1>Form Unavailable</h1>
+        <p>{error}</p>
       </div>
     );
   }
 
-  // Loading state
-  if (!formData) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-        <p className="text-sm text-slate-500">Loading form...</p>
-      </div>
-    );
+  if (!form) {
+    return <div style="padding:2rem;text-align:center">Loading...</div>;
   }
 
-  // Greeting Welcome Screen
-  if (showGreeting && formData?.welcome) {
-    const { welcomeTitle, welcomeMessage, welcomeLogo } = formData.welcome;
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
-        <style>{`
-          @keyframes fadeInUp {
-            from {
-              opacity: 0;
-              transform: translateY(20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          .animate-fade-in-up {
-            opacity: 0;
-            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          }
-        `}</style>
-        <Card className="w-full max-w-lg p-10 text-center space-y-6 shadow-2xl shadow-slate-100/50 border border-slate-100/85">
-          {welcomeLogo && (
-            <div className="flex justify-center animate-fade-in-up">
-              <img
-                src={welcomeLogo}
-                alt="Welcome Logo"
-                className="max-h-24 max-w-xs object-contain rounded-2xl p-1 bg-white border border-slate-100"
-              />
-            </div>
-          )}
-          <div className="space-y-3 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
-            <h1 className="text-3xl font-extrabold text-blue-900 leading-tight">
-              {welcomeTitle || "Welcome"}
-            </h1>
-            <div className="h-1.5 w-16 bg-gradient-to-r from-orange-400 to-orange-500 mx-auto rounded-full" />
-          </div>
-          <p className="text-slate-600 text-sm leading-relaxed max-w-md mx-auto animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-            {welcomeMessage || "Thank you for scanning. Please click below to begin your registration."}
-          </p>
-          <div className="pt-4 animate-fade-in-up" style={{ animationDelay: "450ms" }}>
-            <Button
-              onClick={() => setShowGreeting(false)}
-              className="w-full py-4 text-base bg-gradient-to-r from-orange-400 via-orange-500 to-blue-900 text-white rounded-2xl shadow-lg hover:shadow-xl hover:translate-y-[-1px] transition-all duration-200"
-            >
-              Get Started
-            </Button>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  // Success state — show unique ID
   if (result) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-        <Card className="w-full max-w-lg p-10 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <CheckCircleIcon className="h-10 w-10 text-green-600" />
-          </div>
-          <h1 className="mt-6 text-2xl font-semibold text-blue-900">Submission Successful!</h1>
-          <p className="mt-4 text-sm leading-6 text-slate-600">
-            Your form has been submitted successfully. Please save your unique ID below — you will need it to check your certificate status.
-          </p>
-
-          <div className="mt-8 rounded-[28px] border-2 border-dashed border-orange-300 bg-orange-50 p-6">
-            <p className="text-xs uppercase tracking-[0.3em] text-orange-500">Your Unique ID</p>
-            <p className="mt-3 text-3xl font-bold tracking-wider text-blue-900">{result.unique_id}</p>
-            <button
-              onClick={handleCopyId}
-              className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-blue-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800"
-            >
-              <ClipboardDocumentIcon className="h-4 w-4" />
-              {copied ? "Copied!" : "Copy to Clipboard"}
-            </button>
-          </div>
-
-          <div className="mt-8 rounded-2xl bg-slate-50 p-4 text-left">
-            <p className="text-sm font-medium text-slate-700">What's next?</p>
-            <ul className="mt-2 space-y-1 text-sm text-slate-600">
-              <li>• Save your unique ID securely</li>
-              <li>• Visit the <a href="/customer/login" className="font-medium text-blue-900 underline">Customer Portal</a> to check your certificate status</li>
-              <li>• Use your unique ID to log in</li>
-            </ul>
-          </div>
-        </Card>
+      <div style="padding:2rem;max-width:400px;margin:auto;text-align:center">
+        <h1 style="color:#16a34a">Submitted Successfully</h1>
+        <p>Your Unique ID: <strong>{result.unique_id}</strong></p>
+        <button
+          onClick={() => navigator.clipboard.writeText(result.unique_id)}
+          style="margin-top:1rem;padding:0.5rem 1rem;background:#1e3a8a;color:white;border:none;border-radius:4px;cursor:pointer"
+        >
+          Copy ID
+        </button>
       </div>
     );
   }
 
-  // Form fill state
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6">
-      <div className="mx-auto max-w-2xl">
-        <Card className="p-8">
-          <p className="text-xs uppercase tracking-[0.35em] text-orange-500">Registration Form</p>
-          <h1 className="mt-4 text-2xl font-semibold text-blue-900">{formData.title}</h1>
-          {formData.description ? (
-            <p className="mt-3 text-sm leading-6 text-slate-600">{formData.description}</p>
-          ) : null}
-
-          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-            {(formData.fields || []).map((field) => {
-              const Renderer = FIELD_RENDERERS[field.type] || FIELD_RENDERERS.TEXT;
-              return (
-                <div key={field.field_id}>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    {field.label}
-                    {field.is_required ? <span className="ml-1 text-rose-500">*</span> : null}
-                  </label>
-                  <Renderer field={field} value={answers[field.field_id] || ""} onChange={(val) => updateAnswer(field.field_id, val)} />
-                </div>
-              );
-            })}
-
-            {error ? (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>
-            ) : null}
-
-            <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? "Submitting..." : "Submit Form"}
-            </Button>
-          </form>
-        </Card>
-      </div>
+    <div style="padding:2rem;max-width:600px;margin:auto;font-family:system-ui">
+      <h1>{form.title}</h1>
+      {form.description && <p style="color:#666;margin-bottom:1rem">{form.description}</p>}
+      <form onSubmit={handleSubmit}>
+        {form.fields?.map((field) => (
+          <div key={field.field_id} style="margin-bottom:1rem">
+            <label style="display:block;margin-bottom:0.5rem;font-weight:500">
+              {field.label} {field.is_required && <span style="color:#dc2626">*</span>}
+            </label>
+            {field.type === "SELECT" ? (
+              <select
+                value={answers[field.field_id] || ""}
+                onChange={(e) => handleChange(field.field_id, e.target.value)}
+                style="width:100%;padding:0.5rem;border:1px solid #ccc;border-radius:4px"
+              >
+                <option value="">Select...</option>
+                {(typeof field.options === "string" ? JSON.parse(field.options) : field.options || []).map(
+                  (opt) => <option key={opt} value={opt}>{opt}</option>
+                )}
+              </select>
+            ) : field.type === "CHECKBOX" ? (
+              <div>
+                {(typeof field.options === "string" ? JSON.parse(field.options) : field.options || []).map(
+                  (opt) => (
+                    <label key={opt} style="display:block;margin:0.25rem 0">
+                      <input
+                        type="checkbox"
+                        value={opt}
+                        checked={Array.isArray(answers[field.field_id]) && answers[field.field_id].includes(opt)}
+                        onChange={(e) => {
+                          const current = answers[field.field_id] || [];
+                          handleChange(
+                            field.field_id,
+                            e.target.checked ? [...current, opt] : current.filter((o) => o !== opt)
+                          );
+                        }}
+                      />
+                      {opt}
+                    </label>
+                  )
+                )}
+              </div>
+            ) : (
+              <input
+                type={field.type === "EMAIL" ? "email" : field.type === "NUMBER" ? "number" : field.type === "DATE" ? "date" : "text"}
+                value={answers[field.field_id] || ""}
+                onChange={(e) => handleChange(field.field_id, e.target.value)}
+                placeholder={`Enter ${field.label.toLowerCase()}`}
+                style="width:100%;padding:0.5rem;border:1px solid #ccc;border-radius:4px;box-sizing:border-box"
+              />
+            )}
+          </div>
+        ))}
+        {error && <p style="color:#dc2626;margin-bottom:1rem">{error}</p>}
+        <button
+          type="submit"
+          disabled={submitting}
+          style="width:100%;padding:0.75rem;background:#1e3a8a;color:white;border:none;border-radius:4px;cursor:pointer;font-size:1rem"
+        >
+          {submitting ? "Submitting..." : "Submit Form"}
+        </button>
+      </form>
     </div>
   );
 }
