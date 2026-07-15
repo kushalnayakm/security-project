@@ -192,6 +192,75 @@ async def create_branch(
     return success_response({"entity_id": str(branch.entity_id)})
 
 
+@router.get("/profile", dependencies=[Depends(require_entity_staff)])
+async def get_entity_profile(
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff)
+) -> dict:
+    from app.models.entity import Entity
+    from app.models.document import Document
+    from app.models.qr_code import QrCode
+    from app.models.user import User
+
+    entity_id = actor.get("entity_id")
+    if not entity_id:
+        raise HTTPException(status_code=400, detail="Entity ID is required in auth token context.")
+
+    entity = await session.get(Entity, UUID(entity_id) if isinstance(entity_id, str) else entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Entity not found.")
+
+    # Get logo
+    logo_doc = await session.scalar(
+        select(Document).where(Document.entity_id == (UUID(entity_id) if isinstance(entity_id, str) else entity_id), Document.document_type == "entity_logo")
+    )
+    logo_url = logo_doc.file_path if logo_doc else None
+
+    # Get operator photo
+    photo_doc = await session.scalar(
+        select(Document).where(Document.entity_id == (UUID(entity_id) if isinstance(entity_id, str) else entity_id), Document.document_type == "operator_photo")
+    )
+    operator_photo = photo_doc.file_path if photo_doc else None
+    
+    if not operator_photo and actor.get("user_id"):
+        user_id = actor.get("user_id")
+        user = await session.get(User, UUID(user_id) if isinstance(user_id, str) else user_id)
+        if user:
+            operator_photo = user.photo_url
+
+    # Get QR Code of first form
+    first_form = await session.scalar(
+        select(DynamicForm).where(DynamicForm.entity_id == (UUID(entity_id) if isinstance(entity_id, str) else entity_id)).order_by(DynamicForm.created_at.asc())
+    )
+    qr_image_url = None
+    if first_form:
+        qr = await session.scalar(
+            select(QrCode).where(QrCode.form_id == first_form.form_id)
+        )
+        if qr:
+            qr_image_url = qr.qr_image_url
+
+    # If it is a branch, find parent entity to show main office details
+    parent_name = None
+    if entity.parent_entity_id:
+        parent = await session.get(Entity, entity.parent_entity_id)
+        if parent:
+            parent_name = parent.name
+
+    return success_response({
+        "name": entity.name,
+        "parent_name": parent_name,
+        "entity_type": entity.entity_type,
+        "gst_no": entity.gst_no,
+        "phone": entity.phone,
+        "email": entity.email,
+        "status": entity.status,
+        "logo_url": logo_url,
+        "operator_photo": operator_photo,
+        "qr_image_url": qr_image_url,
+    })
+
+
 @router.get("/forms", dependencies=[Depends(require_entity_staff)])
 async def get_forms(entity_id: str | None = None, session: AsyncSession = Depends(get_db), actor: dict = Depends(require_entity_staff)) -> dict:
     target_entity_id = entity_id if actor.get("role") == "ADMIN" else actor.get("entity_id")

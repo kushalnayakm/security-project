@@ -1,7 +1,17 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { authService } from "../services/authService";
 
+import { registerAuthHandlers } from "../services/api/client";
+
 const AuthContext = createContext(null);
+
+function safeParse(value) {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
@@ -14,20 +24,33 @@ export function AuthProvider({ children }) {
     const storedEntity = localStorage.getItem("entity");
     const storedRole = localStorage.getItem("role");
 
-    if (storedToken && storedEntity && storedRole) {
+    const parsedEntity = safeParse(storedEntity);
+
+    if (storedToken && parsedEntity && storedRole) {
       setToken(storedToken);
-      setEntity(JSON.parse(storedEntity));
+      setEntity(parsedEntity);
       setRole(storedRole);
+    } else {
+      localStorage.removeItem("token");
+      localStorage.removeItem("entity");
+      localStorage.removeItem("role");
     }
     setLoading(false);
   }, []);
 
   useEffect(() => {
+    registerAuthHandlers({
+      getToken: () => localStorage.getItem("token"),
+      onUnauthorized: () => logout(),
+    });
     initializeAuth();
   }, [initializeAuth]);
 
   const loginWithOtp = async (gstNo, phone, otp) => {
     const res = await authService.verifyEntityOtp(gstNo, phone, otp);
+    if (!res?.token || !res?.entity || !res?.role) {
+      throw new Error("Login response is missing token or entity details.");
+    }
     setToken(res.token);
     setEntity(res.entity);
     setRole(res.role);

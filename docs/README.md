@@ -1,8 +1,15 @@
 # Customer Registration & Certificate Management System
 
-Welcome to the documentation for the Customer Registration & Certificate Management System. This project provides a full-stack, enterprise-grade portal allowing organizations (Entities) to build custom registration forms, generate scannable QR codes for them, and onboarding customers securely. Customers can log in using their unique ID to check certificate status, while admins govern entities, forms, and logs.
+Welcome to the Customer Registration & Certificate Management System. This project provides a full-stack, enterprise-grade portal allowing organizations (Entities) to build custom registration forms, generate scannable QR codes for them, and onboard customers securely. Customers can log in using their unique ID to check certificate status, while entity users can log in via OTP to manage forms, view customer submissions, and view their company profile.
 
 ---
+
+## Completed Implementations
+- **Entity Direct Self-Registration**: Includes secure multipart uploads for GST Certificate, Company Logo, and Operator Photo, storing metadata in PostgreSQL and files on backend disk.
+- **Entity Login Flow**: Fixed OTP-based authentication on the frontend by unwrapping the backend response envelope, storing the JWT/entity/role in the existing `localStorage` keys, updating auth state immediately, and redirecting to `/entity/dashboard` without refresh.
+- **Entity Dashboard Integration**: The existing dashboard layout now loads live data from `/entity/profile`, `/entity/forms`, and `/entity/customers`, including company logo, operator photo, entity details, QR assignment status, and backend-driven counts.
+- **Pending Modules Handling**: The dashboard no longer shows fake folder values. When folders or academic year data are unavailable, it explicitly shows `Backend Integration Pending`.
+- **Remove User ID from UI**: Hided internal User IDs from registration previews and portal displays, showing business info instead.
 
 ## Documentation Index
 

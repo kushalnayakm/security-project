@@ -98,8 +98,23 @@ The Entity Portal features an interactive Certificate Issuance workspace (`/enti
 
 ## 8. Authentication and Validation Updates
 
-* **Admin Forgot Code Lookup**: In the Admin Login Page, requesting a forgotten code query handles validations inline. If the admin phone number is invalid (returns a `404`), it highlights the error message directly under the phone input field using form-level state validation and suppresses the generic global error toast popups.
-* **Custom Auth Prioritization**: The Axios API client ignores global auth token overrides if an `Authorization` header has already been manually specified. This allows separate Customer dashboard sessions to make requests without collision with active Admin/Entity sessions.
+* **Entity OTP Login**:
+  - Direct GST and phone number check.
+  - Generates 6-digit verification code, stores it in Redis-styled in-memory store.
+  - Verifies code and yields JWT token loaded with entity permissions.
+  - Frontend now unwraps the standard API response envelope before reading `token`, `entity`, and `role`.
+  - Frontend persists login state in the existing `localStorage` keys and redirects to `/entity/dashboard` immediately after OTP verification.
+* **Premium Profile Panel**:
+  - Loads entity info, logo, operator photo, QR assignment, and live counts from backend APIs.
+  - Uses `/entity/profile` for entity details, document-backed media, and QR assignment state.
+  - Uses `/entity/forms` and `/entity/customers` for dashboard counts.
+  - Shows `QR Not Assigned` when no QR exists.
+  - Shows `Backend Integration Pending` for folders/academic-year areas that do not yet have backend support.
+* **Direct File Uploads**:
+  - Connects React uploads to backend using multipart/form-data.
+  - Saves file on disk (`uploads/`) and metadata path in database (`documents`).
+* **Hidden User IDs**:
+  - Excludes user IDs from frontend views, replacing them with business information previews.
 
 ---
 

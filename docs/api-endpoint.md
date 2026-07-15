@@ -11,7 +11,7 @@ The backend API enforces a standard response envelope for all calls:
 ### Success Envelope
 ```json
 {
-  "status": "SUCCESS",
+  "success": true,
   "data": { ... },
   "error": null
 }
@@ -20,7 +20,7 @@ The backend API enforces a standard response envelope for all calls:
 ### Error Envelope
 ```json
 {
-  "status": "ERROR",
+  "success": false,
   "data": null,
   "error": {
     "code": "ERROR_CODE_STRING",
@@ -64,12 +64,13 @@ Authorization: Bearer <JWT_ACCESS_TOKEN>
 | `/auth/logout` | `POST` | Public | Session termination indicator. |
 
 #### Request / Response Payloads
-#### `POST /auth/entity/login`
+#### `POST /auth/entity/login/verify-otp`
 - **Request Body**:
   ```json
   {
-    "email": "owner@company.com",
-    "password": "strong_password"
+    "gst_no": "29ABCDE1234F1Z5",
+    "phone": "9876543210",
+    "otp": "123456"
   }
   ```
 - **Response Data**:
@@ -83,6 +84,23 @@ Authorization: Bearer <JWT_ACCESS_TOKEN>
       "entity_type": "MAIN"
     },
     "role": "ENTITY_STAFF"
+  }
+  ```
+
+#### `GET /entity/profile`
+- **Response Data**:
+  ```json
+  {
+    "name": "Main Office",
+    "parent_name": null,
+    "entity_type": "MAIN",
+    "gst_no": "29ABCDE1234F1Z5",
+    "phone": "9876543210",
+    "email": "owner@company.com",
+    "status": "ACTIVE",
+    "logo_url": "uploads/entity-logo.png",
+    "operator_photo": "uploads/operator-photo.png",
+    "qr_image_url": "data:image/png;base64,..."
   }
   ```
 

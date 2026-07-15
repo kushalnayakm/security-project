@@ -1,7 +1,17 @@
+import logging
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+# Ensure app-level INFO logs (e.g. OTP banners) are visible in the uvicorn terminal.
+# uvicorn only configures its own loggers by default; this covers the full 'app.*' namespace.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:     %(name)s - %(message)s",
+)
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
@@ -46,4 +56,8 @@ async def unhandled_exception_handler(_: Request, exc: Exception) -> JSONRespons
     return JSONResponse(status_code=500, content=error_response("INTERNAL_SERVER_ERROR", str(exc)))
 
 
+# API routes must be included BEFORE static file mounts.
+# StaticFiles uses a greedy Starlette Mount which, if placed first,
+# can shadow other routes during request dispatch.
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

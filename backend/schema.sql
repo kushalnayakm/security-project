@@ -47,6 +47,18 @@ CREATE TABLE entity_users (
     PRIMARY KEY (entity_id, user_id)
 );
 
+CREATE TABLE documents (
+    document_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_id         UUID NOT NULL REFERENCES entities(entity_id) ON DELETE CASCADE,
+    user_id           UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    document_type     VARCHAR(50) NOT NULL,
+    file_path         TEXT NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    file_size         INT,
+    mime_type         VARCHAR(100),
+    uploaded_at       TIMESTAMP NOT NULL DEFAULT now()
+);
+
 CREATE TABLE dynamic_forms (
     form_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_id       UUID NOT NULL REFERENCES entities(entity_id) ON DELETE CASCADE,

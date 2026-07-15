@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authService } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 
 export function EntityLoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const location = useLocation();
+  const { loginWithOtp } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -15,6 +16,74 @@ export function EntityLoginPage() {
   const [gstNo, setGstNo] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
+  const otpInputRefs = useRef([]);
+  const otpDigits = useMemo(() => Array.from({ length: 6 }, (_, index) => otp[index] || ""), [otp]);
+
+  const updateOtpAtIndex = (index, value) => {
+    const nextDigits = [...otpDigits];
+    nextDigits[index] = value;
+    setOtp(nextDigits.join(""));
+  };
+
+  const focusOtpInput = (index) => {
+    otpInputRefs.current[index]?.focus();
+    otpInputRefs.current[index]?.select?.();
+  };
+
+  const handleOtpChange = (index, rawValue) => {
+    const numericValue = rawValue.replace(/\D/g, "");
+    if (!numericValue) {
+      updateOtpAtIndex(index, "");
+      return;
+    }
+
+    if (numericValue.length > 1) {
+      const nextDigits = [...otpDigits];
+      numericValue.slice(0, 6 - index).split("").forEach((digit, offset) => {
+        nextDigits[index + offset] = digit;
+      });
+      setOtp(nextDigits.join(""));
+      focusOtpInput(Math.min(index + numericValue.length, 5));
+      return;
+    }
+
+    updateOtpAtIndex(index, numericValue);
+    if (index < 5) {
+      focusOtpInput(index + 1);
+    }
+  };
+
+  const handleOtpKeyDown = (index, event) => {
+    if (event.key === "Backspace") {
+      if (otpDigits[index]) {
+        updateOtpAtIndex(index, "");
+      } else if (index > 0) {
+        updateOtpAtIndex(index - 1, "");
+        focusOtpInput(index - 1);
+      }
+      event.preventDefault();
+      return;
+    }
+
+    if (event.key === "ArrowLeft" && index > 0) {
+      focusOtpInput(index - 1);
+      event.preventDefault();
+    }
+
+    if (event.key === "ArrowRight" && index < 5) {
+      focusOtpInput(index + 1);
+      event.preventDefault();
+    }
+  };
+
+  const handleOtpPaste = (event) => {
+    const pastedDigits = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pastedDigits) return;
+
+    event.preventDefault();
+    setOtp(pastedDigits);
+    focusOtpInput(Math.min(pastedDigits.length - 1, 5));
+  };
 
   const handleRequestOtp = async (e) => {
     e.preventDefault();
@@ -36,9 +105,9 @@ export function EntityLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await authService.verifyEntityOtp(gstNo, phone, otp);
-      login(res.token, res.entity, res.role);
-      navigate("/entity/dashboard");
+      await loginWithOtp(gstNo, phone, otp);
+      const redirectTo = location.state?.from?.pathname || "/entity/dashboard";
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err.message || "Invalid OTP");
     } finally {
@@ -96,18 +165,30 @@ export function EntityLoginPage() {
             </p>
             <div style={styles.field}>
               <label style={styles.label}>OTP</label>
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="Enter 6-digit OTP"
-                style={{ ...styles.input, textAlign: "center", letterSpacing: "0.5rem", fontSize: "1.25rem" }}
-                maxLength={6}
-                required
-                autoFocus
-              />
+              <div style={styles.otpInputRow} onPaste={handleOtpPaste}>
+                {otpDigits.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(element) => {
+                      otpInputRefs.current[index] = element;
+                    }}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete={index === 0 ? "one-time-code" : "off"}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    style={styles.otpDigitInput}
+                    maxLength={1}
+                    required
+                    autoFocus={index === 0}
+                    aria-label={`OTP digit ${index + 1}`}
+                  />
+                ))}
+              </div>
             </div>
-            <button type="submit" disabled={loading} style={styles.submitBtn}>
+            <button type="submit" disabled={loading || otp.length !== 6} style={styles.submitBtn}>
               {loading ? "Verifying..." : "VERIFY"}
             </button>
             <button type="button" onClick={() => setStep(1)} style={styles.resendBtn}>
@@ -181,6 +262,20 @@ const styles = {
     border: "1px solid #d1d5db",
     borderRadius: "4px",
     fontSize: "1rem",
+    outline: "none",
+  },
+  otpInputRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+    gap: "0.5rem",
+  },
+  otpDigitInput: {
+    height: "3rem",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    textAlign: "center",
+    fontSize: "1.25rem",
+    fontWeight: 600,
     outline: "none",
   },
   submitBtn: {

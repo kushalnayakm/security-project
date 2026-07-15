@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +12,7 @@ from app.utils.responses import success_response
 
 router = APIRouter(prefix="/auth")
 auth_service = AuthService()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/admin/login")
@@ -27,6 +30,7 @@ async def admin_forgot_id(payload: ForgotAdminIdRequest, session: AsyncSession =
 
 @router.post("/entity/login/request-otp")
 async def entity_request_otp(payload: EntityOtpRequest, session: AsyncSession = Depends(get_db)) -> dict:
+    logger.info("Request OTP endpoint reached")
     result = await auth_service.request_entity_otp(session, payload.gst_no, payload.phone)
     return success_response(jsonable_encoder(result))
 

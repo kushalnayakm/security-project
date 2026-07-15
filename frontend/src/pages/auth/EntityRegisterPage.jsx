@@ -466,7 +466,6 @@ export function EntityRegisterPage() {
         <div style={styles.field}>
           <label style={styles.label}>Operator Photo</label>
           <input type="file" accept="image/*" onChange={(e) => handleFileChange("operatorPhoto", e)} style={styles.fileInput} />
-          {formData.operatorPhoto && <p style={styles.fileName}>File: {formData.operatorPhoto.name}</p>}
         </div>
       </div>
       <div style={styles.row}>
@@ -475,15 +474,15 @@ export function EntityRegisterPage() {
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange("userDocument", e)} style={styles.fileInput} />
           {formData.userDocument && <p style={styles.fileName}>File: {formData.userDocument.name}</p>}
         </div>
-        <div style={styles.field}>
-          <label style={styles.label}>User ID</label>
-          <input
-            type="text"
-            value={formData.userId}
-            onChange={(e) => handleChange("userId", e.target.value)}
-            placeholder="User ID"
-            style={styles.input}
-          />
+      </div>
+      <div style={{ marginTop: "1rem", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
+        <h4 style={{ color: "#1e3a8a", margin: "0 0 0.5rem 0", fontSize: "0.875rem" }}>Registration Summary</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", fontSize: "0.8125rem", color: "#475569" }}>
+          <div><strong>Entity Name:</strong> {formData.name}</div>
+          <div><strong>Branch Name:</strong> {formData.branchName || "Main Office"}</div>
+          <div><strong>GST Number:</strong> {formData.gstNo}</div>
+          <div><strong>Contact Person:</strong> {formData.contactPerson || "N/A"}</div>
+          <div><strong>Status:</strong> <span style={{ color: "#00695C", fontWeight: 600 }}>PENDING_VERIFICATION</span></div>
         </div>
       </div>
     </fieldset>

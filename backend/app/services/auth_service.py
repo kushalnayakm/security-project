@@ -164,7 +164,7 @@ class AuthService:
     async def request_entity_otp(self, session: AsyncSession, gst_no: str, phone: str) -> dict:
         """Generate and store OTP for entity login."""
         # Resolve target user first to ensure they exist and are active
-        await self._resolve_entity_user(session, gst_no, phone)
+        entity, _, _ = await self._resolve_entity_user(session, gst_no, phone)
 
         # Generate OTP
         otp = await otp_service.generate_otp()
@@ -176,6 +176,27 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to generate OTP. Please try again."
             )
+
+        generated_at = datetime.utcnow()
+        expires_in = "5 Minutes"
+
+        # Development banner — printed directly to stdout so it always appears
+        # in the uvicorn terminal regardless of the logging level configured.
+        banner = (
+            "\n"
+            "========================================\n"
+            "         ENTITY LOGIN OTP               \n"
+            "========================================\n"
+            f"Entity Name : {entity.name or gst_no}\n"
+            f"GST Number  : {gst_no}\n"
+            f"Phone       : {phone}\n"
+            f"OTP         : {otp}\n"
+            f"Generated At: {generated_at.isoformat()} UTC\n"
+            f"Expires In  : {expires_in}\n"
+            "========================================"
+        )
+        print(banner, flush=True)
+        logger.info(banner)
 
         masked_phone = otp_service.mask_phone(phone)
         return {"otp_sent": True, "masked_phone": masked_phone}
@@ -328,6 +349,7 @@ class AuthService:
                 password_hash="",  # No password - OTP based auth
                 phone=phone,
                 role="ENTITY_STAFF",
+                photo_url=payload.get("operatorPhotoUrl"),
             )
             session.add(user)
             await session.flush()

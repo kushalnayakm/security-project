@@ -56,7 +56,7 @@ python backend/setup_db.py
 
 1. **Auto-Venv Fallback**: Detects if your active shell is missing dependencies like `asyncpg` and automatically re-executes itself using the `.venv` interpreter.
 2. **Database Recreation**: Connects to your PostgreSQL engine, terminates active connections to the target database (`customer_registration`), drops it, and recreates it.
-3. **Schema Initialization**: Reads and runs all SQL structures from `backend/schema.sql`.
+3. **Schema Initialization**: Reads and runs all SQL structures from `backend/schema.sql`, including the newly added `documents` table.
 4. **Seed Default Admin**: Creates a default Admin user:
    * **Username**: `admin`
    * **Password**: `admin@123`

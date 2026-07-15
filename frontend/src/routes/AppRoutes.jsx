@@ -30,14 +30,13 @@ function AppRoutesInner() {
 
       {/* Protected entity routes */}
       <Route
+        path="/entity/dashboard"
         element={
           <ProtectedRoute allowedRoles={["ENTITY_STAFF", "ADMIN"]}>
             <EntityDashboardPage />
           </ProtectedRoute>
         }
-      >
-        <Route path="entity/dashboard" element={<EntityDashboardPage />} />
-      </Route>
+      />
 
       {/* Catch all - redirect to home */}
       <Route path="*" element={<Navigate to="/" replace />} />

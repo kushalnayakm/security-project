@@ -34,17 +34,8 @@ class OTPService:
                 "expires_at": expires_at.isoformat(),
             }
             _otp_store[key] = data
-            
-            # Development: Print OTP to console for testing (no SMS integration)
-            print("\n" + "="*40)
-            print("ENTITY LOGIN OTP")
-            print(f"GST: {gst_no}")
-            print(f"Phone: {phone}")
-            print(f"OTP: {otp}")
-            print("="*40 + "\n")
-            
-            # Also log to logger for production monitoring
-            logger.info(f"OTP generated for GST {gst_no}: {otp}")
+            # Internal audit — full banner is logged by the calling service
+            logger.info(f"OTP stored for GST {gst_no}, expires at {expires_at.isoformat()} UTC")
             return True
         except Exception as e:
             logger.exception(f"Failed to store OTP: {e}")

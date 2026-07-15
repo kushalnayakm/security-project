@@ -9,6 +9,13 @@ This document describes the design patterns, layer divisions, file layout, and d
 
 The backend follows a clean, layered architecture separating request management, schema validation, business logic, and database schemas.
 
+### Media & Static File Delivery
+- Mounted the `uploads/` directory on FastAPI to serve images and documents at `/uploads`.
+- Saves uploaded files with UUID prefixes to avoid name collision.
+
+### Database Additions
+- **`documents`**: Stores file metadata, type (logo, photo, certificate), and local server path linked to entities and users.
+
 ```
 backend/
 ├── app/
@@ -65,8 +72,10 @@ frontend/
 ### Session Authorization & Request Interceptor
 
 * **Admin / Entity**: Sessions are managed globally through `AuthContext`. Tokens are persisted in `localStorage`.
+* **Entity OTP Login State Fix**: The frontend auth flow now unwraps `response.data.data` from Axios before storing `token`, `entity`, and `role`, preventing false unauthenticated states after successful OTP verification.
 * **Customer**: Sessions are managed locally via `sessionStorage` (with key `customer_session`). Because customer JWTs are short-lived and represent passwordless lookups, isolating them prevents cross-contamination of credentials.
 * **Axios Request Interceptor**: The global interceptor in [client.js](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/frontend/src/services/api/client.js>) automatically injects the active Admin/Entity token. To prevent overwriting manually supplied headers (like the customer dashboard requests), the interceptor first checks if an `Authorization` header is already defined on the config before applying defaults.
+* **Protected Entity Dashboard Route**: The entity dashboard is protected at `/entity/dashboard` and relies on the hydrated AuthContext state instead of a page refresh to unlock navigation.
 * **Programmatic Downloads**: PDF file downloading uses the custom [download.js](<file:///Users/saicharanbk/Documents/Github%20Projects/security-project/frontend/src/utils/download.js>) utility. This converts base64 Data URIs into binary Blobs and triggers downloads programmatically, resolving browser-level data frame security blockages.
 
 ---
