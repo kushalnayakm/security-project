@@ -49,22 +49,26 @@ async def register_entity(
     name: str = Form(...),
     gstNo: str = Form(...),
     gstDoc: UploadFile | None = File(None),
+    addressProof: UploadFile | None = File(None),
     businessType: str | None = Form(None),
     address: str | None = Form(None),
+    location: str | None = Form(None),
+    locationLat: str | None = Form(None),
+    locationLng: str | None = Form(None),
     contactPerson: str | None = Form(None),
     phone: str = Form(...),
-    email: str = Form(...),
+    email: str | None = Form(None),
     # Personal Details (Step 2)
-    firstName: str = Form(...),
+    firstName: str | None = Form(None),
     midName: str | None = Form(None),
-    lastName: str = Form(...),
+    lastName: str | None = Form(None),
     fatherName: str | None = Form(None),
     motherName: str | None = Form(None),
     spouseName: str | None = Form(None),
-    sex: str = Form(...),
-    dob: str = Form(...),
+    sex: str | None = Form(None),
+    dob: str | None = Form(None),
     # Entity/Operator/Document (Step 3)
-    entityName: str = Form(...),
+    entityName: str | None = Form(None),
     branchName: str | None = Form(None),
     entityLogo: UploadFile | None = File(None),
     operatorPhoto: UploadFile | None = File(None),
@@ -83,6 +87,16 @@ async def register_entity(
         gst_doc_original = gstDoc.filename
         gst_doc_size = gstDoc.size
         gst_doc_mime = gstDoc.content_type
+        
+    address_proof_path = None
+    address_proof_original = None
+    address_proof_size = None
+    address_proof_mime = None
+    if addressProof:
+        address_proof_path = await save_upload_file(addressProof)
+        address_proof_original = addressProof.filename
+        address_proof_size = addressProof.size
+        address_proof_mime = addressProof.content_type
     
     entity_logo_path = None
     entity_logo_original = None
@@ -143,6 +157,9 @@ async def register_entity(
         "entityLogoUrl": entity_logo_path,
         "operatorPhotoUrl": operator_photo_path,
         "userDocumentUrl": user_document_path,
+        "location": location,
+        "locationLat": locationLat,
+        "locationLng": locationLng,
     })
     
     logger.info("Entity registration request model: %s", payload)
@@ -162,6 +179,11 @@ async def register_entity(
                 session, entity_id, user_id, "gst_document",
                 gst_doc_path, gst_doc_original, gst_doc_size, gst_doc_mime
             )
+        if address_proof_path:
+            await save_document_record(
+                session, entity_id, user_id, "address_proof",
+                address_proof_path, address_proof_original, address_proof_size, address_proof_mime
+            )
         if entity_logo_path:
             await save_document_record(
                 session, entity_id, user_id, "entity_logo",
@@ -178,6 +200,7 @@ async def register_entity(
                 user_document_path, user_document_original, user_document_size, user_document_mime
             )
     
+    await session.commit()
     return success_response(result)
 
 
@@ -193,7 +216,6 @@ async def update_entity_profile(
     locationLng: str | None = Form(None),
     gstDoc: UploadFile | None = File(None),
     addressProof: UploadFile | None = File(None),
-    operatorPhoto: UploadFile | None = File(None),
     session: AsyncSession = Depends(get_db),
     actor: dict = Depends(require_entity_staff),
 ) -> dict:
@@ -239,16 +261,6 @@ async def update_entity_profile(
         address_proof_size = addressProof.size
         address_proof_mime = addressProof.content_type
 
-    operator_photo_path = None
-    operator_photo_original = None
-    operator_photo_size = None
-    operator_photo_mime = None
-    if operatorPhoto:
-        operator_photo_path = await save_upload_file(operatorPhoto)
-        operator_photo_original = operatorPhoto.filename
-        operator_photo_size = operatorPhoto.size
-        operator_photo_mime = operatorPhoto.content_type
-
     updated_entity = await entity_service.update_entity(session, entity_id, payload)
 
     if gst_doc_path:
@@ -273,20 +285,6 @@ async def update_entity_profile(
             address_proof_size,
             address_proof_mime,
         )
-    if operator_photo_path:
-        await upsert_document_record(
-            session,
-            updated_entity.entity_id,
-            UUID(user_id) if isinstance(user_id, str) else user_id,
-            "operator_photo",
-            operator_photo_path,
-            operator_photo_original,
-            operator_photo_size,
-            operator_photo_mime,
-        )
-        user = await session.get(User, UUID(user_id) if isinstance(user_id, str) else user_id)
-        if user:
-            user.photo_url = operator_photo_path
 
     await session.commit()
 

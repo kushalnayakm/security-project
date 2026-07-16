@@ -163,8 +163,17 @@ class AuthService:
 
     async def request_entity_otp(self, session: AsyncSession, gst_no: str, phone: str) -> dict:
         """Generate and store OTP for entity login."""
-        # Resolve target user first to ensure they exist and are active
-        entity, _, _ = await self._resolve_entity_user(session, gst_no, phone)
+        logger.info(f"Requesting entity OTP for GST: {gst_no}, Phone: {phone}")
+        try:
+            # Resolve target user first to ensure they exist and are active
+            entity, _, _ = await self._resolve_entity_user(session, gst_no, phone)
+        except Exception as e:
+            logger.error(
+                f"Error resolving entity user for GST {gst_no}, Phone {phone}: {e}. "
+                "Rolling back database session."
+            )
+            await session.rollback()
+            raise
 
         # Generate OTP
         otp = await otp_service.generate_otp()
@@ -172,10 +181,13 @@ class AuthService:
         # Store OTP in Redis
         success = await otp_service.store_otp(gst_no, phone, otp)
         if not success:
+            logger.error(f"Failed to store OTP in storage for GST {gst_no}, Phone {phone}. Rolling back database session.")
+            await session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to generate OTP. Please try again."
             )
+
 
         generated_at = datetime.utcnow()
         expires_in = "5 Minutes"
@@ -271,9 +283,26 @@ class AuthService:
                 detail="Failed to generate OTP. Please try again."
             )
 
+        generated_at = datetime.utcnow()
+        expires_in = "5 Minutes"
+
+        # Development banner for registration OTP
+        banner = (
+            "\n"
+            "========================================\n"
+            "       ENTITY REGISTRATION OTP          \n"
+            "========================================\n"
+            f"Phone       : {phone}\n"
+            f"OTP         : {otp}\n"
+            f"Generated At: {generated_at.isoformat()} UTC\n"
+            f"Expires In  : {expires_in}\n"
+            "========================================"
+        )
+        print(banner, flush=True)
+        logger.info(banner)
+
         masked_phone = otp_service.mask_phone(phone)
         return {"otp_sent": True, "masked_phone": masked_phone}
-
     async def verify_registration_otp(self, session: AsyncSession, phone: str, otp: str) -> dict:
         """Verify OTP for entity registration."""
         # Verify OTP using Redis with registration prefix
@@ -363,6 +392,10 @@ class AuthService:
                 gst_doc_url=payload.get("gstDocUrl"),
                 business_type=payload.get("businessType"),
                 address=payload.get("address"),
+                location=payload.get("location"),
+                location_lat=payload.get("locationLat"),
+                location_lng=payload.get("locationLng"),
+                branch_name=payload.get("branchName"),
                 contact_person=payload.get("contactPerson"),
                 phone=phone,
                 email=email,
@@ -378,7 +411,32 @@ class AuthService:
             await session.commit()
             logger.info("Commit successful")
             await session.refresh(entity)
-            return {"entity_id": entity.entity_id, "user_id": user.user_id}
+
+            settings = get_settings()
+            token = create_access_token(
+                subject=str(user.user_id),
+                role=user.role,
+                expires_delta=timedelta(minutes=settings.jwt_expiry_minutes),
+                extra_claims={
+                    "user_id": str(user.user_id),
+                    "entity_id": str(entity.entity_id),
+                    "entity_user_role": "OWNER",
+                    "parent_entity_id": None
+                },
+            )
+            entity_data = {
+                "entity_id": str(entity.entity_id),
+                "name": entity.name,
+                "gst_no": entity.gst_no,
+                "phone": entity.phone
+            }
+            return {
+                "entity_id": str(entity.entity_id),
+                "user_id": str(user.user_id),
+                "token": token,
+                "role": user.role,
+                "entity": entity_data
+            }
         except Exception as exc:
             await session.rollback()
             logger.exception("Entity registration failed: %s", exc)

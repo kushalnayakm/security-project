@@ -172,7 +172,7 @@ async def main():
         await conn.execute(schema_sql)
         print("Database schema initialized successfully.")
         
-        # 3. Seed the single admin user
+        # 3. Seed default roles/credentials
         print("Seeding default admin user...")
         user_id = uuid.uuid4()
         admin_id = uuid.uuid4()
@@ -190,12 +190,34 @@ async def main():
             INSERT INTO admins (admin_id, user_id, can_manage_entities, can_manage_customers)
             VALUES ($1, $2, $3, $4)
         """, admin_id, user_id, True, True)
+
+        print("Seeding default testing entity...")
+        test_user_id = uuid.uuid4()
+        test_entity_id = uuid.uuid4()
+
+        await conn.execute("""
+            INSERT INTO users (user_id, name, password_hash, phone, role, status)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        """, test_user_id, "Test Owner", "", "9999999999", "ENTITY_STAFF", "ACTIVE")
+
+        await conn.execute("""
+            INSERT INTO entities (entity_id, name, gst_no, phone, status, entity_type)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        """, test_entity_id, "Test Entity", "22AAAAA0000A1Z5", "9999999999", "ACTIVE", "MAIN")
+
+        await conn.execute("""
+            INSERT INTO entity_users (entity_id, user_id, role)
+            VALUES ($1, $2, $3)
+        """, test_entity_id, test_user_id, "OWNER")
         
         print("\n" + "=" * 50)
         print("DATABASE SETUP SUCCESSFUL!")
         print(f"Admin Username: admin")
         print(f"Admin Password: admin@123")
         print(f"Admin ID (UUID for API/Postman): {admin_id}")
+        print("-" * 50)
+        print(f"Test Entity GST: 22AAAAA0000A1Z5")
+        print(f"Test Entity Phone: 9999999999")
         print("=" * 50 + "\n")
         
     except Exception as e:

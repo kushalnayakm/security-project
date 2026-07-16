@@ -27,17 +27,17 @@ function buildErrorMessage(error) {
     (typeof data === "string" ? data : "");
 
   if (status === 404) {
-    return backendMessage || "Requested API endpoint was not found (404).";
+    return backendMessage ? `API Error (404): ${backendMessage}` : "Requested API endpoint was not found (404).";
   }
   if (status === 401) {
-    return backendMessage || "Authentication failed or session expired (401).";
+    return backendMessage ? `Auth Error (401): ${backendMessage}` : "Authentication failed or session expired (401).";
   }
   if (status === 500) {
-    return backendMessage || "Server error occurred (500).";
+    return backendMessage ? `Server Error (500): ${backendMessage}` : "Server error occurred (500).";
   }
 
-  if (error.code === "ERR_NETWORK") {
-    return "Network or CORS error while contacting the API.";
+  if (error.code === "ERR_NETWORK" && !error.response) {
+    return "Network or CORS Error: Please verify that the backend server is running and CORS origins are allowed.";
   }
 
   return backendMessage || error.message || "Request failed";

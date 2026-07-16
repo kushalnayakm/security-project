@@ -1,17 +1,14 @@
-import os
+import base64
 import uuid
 from pathlib import Path
 from fastapi import UploadFile, HTTPException, status
-
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
 async def save_upload_file(file: UploadFile) -> str:
-    """Save uploaded file to disk, return the file path."""
+    """Read the file content and return it encoded as a Base64 Data URI to store in PostgreSQL."""
     if not file.filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -25,11 +22,7 @@ async def save_upload_file(file: UploadFile) -> str:
             detail=f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
         )
     
-    # Generate unique filename
-    unique_name = f"{uuid.uuid4().hex}{ext}"
-    file_path = UPLOAD_DIR / unique_name
-    
-    # Read and save file
+    # Read file content
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
@@ -37,10 +30,11 @@ async def save_upload_file(file: UploadFile) -> str:
             detail="File size exceeds 10MB limit"
         )
     
-    with open(file_path, "wb") as f:
-        f.write(content)
+    # Base64 encode the binary content
+    base64_data = base64.b64encode(content).decode("utf-8")
+    mime_type = file.content_type or "application/octet-stream"
     
-    return str(file_path)
+    return f"data:{mime_type};base64,{base64_data}"
 
 
 async def save_document_record(session, entity_id: str, user_id: str, document_type: str, 

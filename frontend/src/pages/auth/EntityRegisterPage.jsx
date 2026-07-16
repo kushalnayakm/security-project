@@ -19,7 +19,15 @@ function parseGoogleMapsValue(input) {
     const placeMatch = decodeURIComponent(url.pathname).match(/\/place\/([^/]+)/i);
     const query = url.searchParams.get("q") || url.searchParams.get("query");
     const coordsMatch = raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    const formatted = (placeMatch?.[1] || query || raw).replace(/\+/g, " ").trim();
+    
+    let formatted = (placeMatch?.[1] || query || "").replace(/\+/g, " ").trim();
+    if (!formatted) {
+      formatted = raw;
+    }
+    
+    // Format into multi-line address by splitting commas
+    formatted = formatted.split(",").map(part => part.trim()).filter(Boolean).join("\n");
+    
     return {
       formatted,
       lat: coordsMatch?.[1] || "",
@@ -32,7 +40,7 @@ function parseGoogleMapsValue(input) {
 
 export function EntityRegisterPage() {
   const navigate = useNavigate();
-  const { entity: authEntity, isAuthenticated } = useAuth();
+  const { entity: authEntity, isAuthenticated, logout } = useAuth();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -51,11 +59,15 @@ export function EntityRegisterPage() {
     gstDoc: null,
     address: "",
     addressProof: null,
-    operatorPhoto: null,
     location: "",
     locationLat: "",
     locationLng: "",
   });
+
+  useEffect(() => {
+    setOtpVerified(Boolean(isAuthenticated));
+    setOtpStep(isAuthenticated ? 2 : 1);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     let active = true;
@@ -91,6 +103,9 @@ export function EntityRegisterPage() {
             url: err.url,
             method: err.method,
           });
+          if (err.status === 401 || err.status === 404) {
+            logout();
+          }
         }
       } finally {
         if (active) {
@@ -230,12 +245,25 @@ export function EntityRegisterPage() {
       if (formData.addressProof instanceof File) {
         payload.append("addressProof", formData.addressProof);
       }
-      if (formData.operatorPhoto instanceof File) {
-        payload.append("operatorPhoto", formData.operatorPhoto);
-      }
 
-      await entityService.updateProfile(payload);
-      navigate("/entity/dashboard");
+      if (isAuthenticated) {
+        await entityService.updateProfile(payload);
+        navigate("/entity/dashboard");
+      } else {
+        // Construct standard fallback email for registration
+        const cleanName = formData.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+        payload.append("email", `${cleanName || "info"}@example.com`);
+        payload.append("password", ""); // Required by backend EntityRegisterRequest schema
+        const res = await authService.registerEntity(payload);
+        if (res.token) {
+          localStorage.setItem("token", res.token);
+          localStorage.setItem("entity", JSON.stringify(res.entity));
+          localStorage.setItem("role", res.role);
+          window.location.href = "/entity/dashboard";
+        } else {
+          navigate("/auth/entity/login");
+        }
+      }
     } catch (err) {
       setError(err.message || "Failed to update entity profile.");
     } finally {
@@ -291,9 +319,8 @@ export function EntityRegisterPage() {
                 type="text"
                 value={formData.gstNo}
                 onChange={(e) => handleChange("gstNo", e.target.value.toUpperCase())}
-                style={{ ...styles.gridInput, ...(hasLockedGst ? styles.readonlyInput : {}) }}
+                style={styles.gridInput}
                 required
-                readOnly={hasLockedGst}
               />
             </div>
             <div style={styles.gridCell}>
@@ -310,9 +337,9 @@ export function EntityRegisterPage() {
               <div style={styles.locationField}>{locationDisplay}</div>
             </div>
 
-            <label style={{ ...styles.attachCell, background: formData.gstDoc ? MINT_DONE : MINT_FILL }}>
+            <label style={{ ...styles.attachCell, background: formData.gstDoc ? "#E8FDFB" : MINT_FILL }}>
               <span style={{ ...styles.attachLabel, transform: formData.gstDoc ? "none" : "rotate(-25deg)" }}>
-                {formData.gstDoc ? `GST certificate: ${formData.gstDoc.name}` : "ATTACH GST CERTIFICATE"}
+                {formData.gstDoc ? `✓ ${formData.gstDoc.name}` : "ATTACH GST CERTIFICATE"}
               </span>
               <input
                 type="file"
@@ -322,9 +349,9 @@ export function EntityRegisterPage() {
               />
             </label>
 
-            <label style={{ ...styles.attachCell, background: formData.addressProof ? MINT_DONE : MINT_FILL }}>
+            <label style={{ ...styles.attachCell, background: formData.addressProof ? "#E8FDFB" : MINT_FILL }}>
               <span style={{ ...styles.attachLabel, transform: formData.addressProof ? "none" : "rotate(-25deg)" }}>
-                {formData.addressProof ? `Address proof: ${formData.addressProof.name}` : "ATTACH ADDRESS PROOF"}
+                {formData.addressProof ? `✓ ${formData.addressProof.name}` : "ATTACH ADDRESS PROOF"}
               </span>
               <input
                 type="file"
@@ -334,42 +361,17 @@ export function EntityRegisterPage() {
               />
             </label>
 
-            <label style={{ ...styles.attachCell, background: formData.operatorPhoto ? MINT_DONE : MINT_FILL }}>
-              <span style={{ ...styles.attachLabel, transform: formData.operatorPhoto ? "none" : "rotate(-25deg)" }}>
-                {formData.operatorPhoto ? `Operator photo: ${formData.operatorPhoto.name}` : "ATTACH OPERATOR PHOTO"}
-              </span>
-              {formData.operatorPhoto && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleFileRemove("operatorPhoto");
-                  }}
-                  style={styles.removeFileBtn}
-                >
-                  Remove
-                </button>
-              )}
-              <input
-                type="file"
-                accept=".jpg,.jpeg,.png"
-                onChange={(e) => handleFileChange("operatorPhoto", e)}
-                style={styles.hiddenInput}
-              />
-            </label>
-
             <div
               onClick={handleLocatePick}
               style={{
                 ...styles.attachCell,
                 ...styles.mapCell,
-                background: formData.location ? MINT_DONE : MINT_FILL,
+                background: formData.location ? "#E8FDFB" : MINT_FILL,
                 cursor: "pointer",
               }}
             >
               <span style={{ ...styles.attachLabel, transform: formData.location ? "none" : "rotate(-25deg)" }}>
-                {locating ? "LOCATING..." : formData.location ? formData.location : "LOCATE IN GOOGLE MAPS"}
+                {locating ? "LOCATING..." : formData.location ? "✓ Location Selected" : "LOCATE IN GOOGLE MAPS"}
               </span>
             </div>
           </div>
@@ -404,7 +406,7 @@ export function EntityRegisterPage() {
                 )}
               </div>
             ) : (
-              <div style={styles.verifiedStrip}>Phone verified</div>
+              <div style={styles.verifiedStrip}>✓ Phone Verified</div>
             )}
           </div>
 
@@ -624,13 +626,15 @@ const styles = {
     cursor: "pointer",
   },
   verifiedStrip: {
-    alignSelf: "flex-start",
-    border: `2px solid ${MINT_BORDER}`,
-    background: MINT_FILL,
-    color: "#166534",
-    fontWeight: 700,
-    fontSize: "0.88rem",
-    padding: "0.35rem 0.7rem",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    border: `1px solid ${MINT_BORDER}`,
+    background: "#ECFDF5",
+    color: "#047857",
+    fontWeight: 600,
+    fontSize: "0.85rem",
+    padding: "0.4rem 0.8rem",
   },
   summaryBox: {
     border: `2px solid ${MINT_BORDER}`,
