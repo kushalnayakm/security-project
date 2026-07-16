@@ -10,10 +10,14 @@ class EntityCreate(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     name: str
+    branchName: str | None = Field(default=None, validation_alias=AliasChoices("branchName", "branch_name"), serialization_alias="branchName")
     gstNo: str | None = Field(default=None, validation_alias=AliasChoices("gstNo", "gst_no"), serialization_alias="gstNo")
     gstDocUrl: str | None = Field(default=None, validation_alias=AliasChoices("gstDocUrl", "gst_doc_url"), serialization_alias="gstDocUrl")
     businessType: str | None = Field(default=None, validation_alias=AliasChoices("businessType", "business_type"), serialization_alias="businessType")
     address: str | None = None
+    location: str | None = None
+    locationLat: str | None = Field(default=None, validation_alias=AliasChoices("locationLat", "location_lat"), serialization_alias="locationLat")
+    locationLng: str | None = Field(default=None, validation_alias=AliasChoices("locationLng", "location_lng"), serialization_alias="locationLng")
     contactPerson: str | None = Field(
         default=None,
         validation_alias=AliasChoices("contactPerson", "contact_person"),
@@ -32,10 +36,14 @@ class EntityRegisterRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     name: str
+    branchName: str | None = Field(default=None, validation_alias=AliasChoices("branchName", "branch_name"), serialization_alias="branchName")
     gstNo: str = Field(validation_alias=AliasChoices("gstNo", "gst_no"), serialization_alias="gstNo")
     gstDocUrl: str | None = Field(default=None, validation_alias=AliasChoices("gstDocUrl", "gst_doc_url"), serialization_alias="gstDocUrl")
     businessType: str | None = Field(default=None, validation_alias=AliasChoices("businessType", "business_type"), serialization_alias="businessType")
     address: str | None = None
+    location: str | None = None
+    locationLat: str | None = Field(default=None, validation_alias=AliasChoices("locationLat", "location_lat"), serialization_alias="locationLat")
+    locationLng: str | None = Field(default=None, validation_alias=AliasChoices("locationLng", "location_lng"), serialization_alias="locationLng")
     contactPerson: str | None = Field(
         default=None,
         validation_alias=AliasChoices("contactPerson", "contact_person"),
@@ -65,10 +73,14 @@ class EntityUpdate(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     name: str | None = None
+    branchName: str | None = None
     gstNo: str | None = None
     gstDocUrl: str | None = Field(default=None, validation_alias=AliasChoices("gstDocUrl", "gst_doc_url"), serialization_alias="gstDocUrl")
     businessType: str | None = None
     address: str | None = None
+    location: str | None = None
+    locationLat: str | None = None
+    locationLng: str | None = None
     contactPerson: str | None = None
     phone: str | None = None
     email: EmailStr | None = None
@@ -85,10 +97,14 @@ class EntityRead(ORMModel):
     parent_entity_id: UUID | None = None
     entity_type: str = "MAIN"
     name: str
+    branch_name: str | None = None
     gst_no: str | None
     gst_doc_url: str | None = None
     business_type: str | None
     address: str | None
+    location: str | None = None
+    location_lat: str | None = None
+    location_lng: str | None = None
     contact_person: str | None
     phone: str | None
     email: str | None

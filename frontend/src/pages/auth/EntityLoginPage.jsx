@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { authService } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 
@@ -12,7 +12,6 @@ export function EntityLoginPage() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
-  // OTP mode
   const [gstNo, setGstNo] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -78,15 +77,17 @@ export function EntityLoginPage() {
 
   const handleOtpPaste = (event) => {
     const pastedDigits = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    if (!pastedDigits) return;
+    if (!pastedDigits) {
+      return;
+    }
 
     event.preventDefault();
     setOtp(pastedDigits);
     focusOtpInput(Math.min(pastedDigits.length - 1, 5));
   };
 
-  const handleRequestOtp = async (e) => {
-    e.preventDefault();
+  const handleRequestOtp = async (event) => {
+    event.preventDefault();
     setError(null);
     setLoading(true);
     try {
@@ -100,8 +101,8 @@ export function EntityLoginPage() {
     }
   };
 
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
+  const handleVerifyOtp = async (event) => {
+    event.preventDefault();
     setError(null);
     setLoading(true);
     try {
@@ -115,57 +116,49 @@ export function EntityLoginPage() {
     }
   };
 
+  const resetOtpStep = () => {
+    setStep(1);
+    setOtp("");
+    setSuccess(false);
+    setError(null);
+  };
+
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <h1 style={styles.logo}>DID</h1>
-          <Link to="/auth/entity/register" style={styles.registerLink} onMouseEnter={(e) => e.target.style.background = "#1e40af"} onMouseLeave={(e) => e.target.style.background = "#1e3a8a"}>
-            NEW Entity reg
-          </Link>
-        </div>
+      <div style={styles.page}>
+        <h1 style={styles.logo}>DID</h1>
 
-        {success && <p style={styles.success}>{success}</p>}
-        {error && <p style={styles.error}>{error}</p>}
+        {success && step === 2 ? <p style={styles.success}>{success}</p> : null}
+        {error ? <p style={styles.error}>{error}</p> : null}
 
-        {step === 1 && (
-          <form onSubmit={handleRequestOtp} style={styles.form}>
-            <div style={styles.field}>
-              <label style={styles.label}>GST Number *</label>
-              <input
-                type="text"
-                value={gstNo}
-                onChange={(e) => setGstNo(e.target.value.toUpperCase())}
-                placeholder="Enter GST number"
-                style={styles.input}
-                required
-              />
-            </div>
-            <div style={styles.field}>
-              <label style={styles.label}>Phone Number *</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter registered phone"
-                style={styles.input}
-                required
-              />
-            </div>
-            <button type="submit" disabled={loading} style={styles.submitBtn}>
-              {loading ? "Sending..." : "SEND OTP"}
-            </button>
-          </form>
-        )}
+        <form onSubmit={step === 1 ? handleRequestOtp : handleVerifyOtp} style={styles.form}>
+          <div style={styles.field}>
+            <input
+              id="gstNo"
+              type="text"
+              value={gstNo}
+              onChange={(event) => setGstNo(event.target.value.toUpperCase())}
+              placeholder="G S T #"
+              style={styles.input}
+              required
+            />
+          </div>
 
-        {step === 2 && (
-          <form onSubmit={handleVerifyOtp} style={styles.form}>
-            <p style={styles.otpInfo}>
-              Enter OTP sent to <strong>{phone.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")}</strong>
-            </p>
+          <div style={styles.field}>
+            <input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="PHONE #"
+              style={styles.input}
+              required
+            />
+          </div>
+
+          {step === 2 ? (
             <div style={styles.field}>
-              <label style={styles.label}>OTP</label>
-              <div style={styles.otpInputRow} onPaste={handleOtpPaste}>
+              <div style={styles.otpRow} onPaste={handleOtpPaste}>
                 {otpDigits.map((digit, index) => (
                   <input
                     key={index}
@@ -177,147 +170,155 @@ export function EntityLoginPage() {
                     pattern="[0-9]*"
                     autoComplete={index === 0 ? "one-time-code" : "off"}
                     value={digit}
-                    onChange={(e) => handleOtpChange(index, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    style={styles.otpDigitInput}
+                    onChange={(event) => handleOtpChange(index, event.target.value)}
+                    onKeyDown={(event) => handleOtpKeyDown(index, event)}
+                    style={styles.otpInput}
                     maxLength={1}
                     required
                     autoFocus={index === 0}
                     aria-label={`OTP digit ${index + 1}`}
+                    placeholder="-"
                   />
                 ))}
               </div>
             </div>
-            <button type="submit" disabled={loading || otp.length !== 6} style={styles.submitBtn}>
-              {loading ? "Verifying..." : "VERIFY"}
+          ) : null}
+
+          {step === 1 ? (
+            <button type="submit" disabled={loading} style={styles.primaryButton}>
+              {loading ? "Requesting..." : "Request OTP"}
             </button>
-            <button type="button" onClick={() => setStep(1)} style={styles.resendBtn}>
-              Resend OTP
-            </button>
-          </form>
-        )}
+          ) : (
+            <>
+              <button type="submit" disabled={loading || otp.length !== 6} style={styles.primaryButton}>
+                {loading ? "Verifying..." : "Verify OTP"}
+              </button>
+              <button type="button" onClick={resetOtpStep} style={styles.secondaryButton}>
+                Resend OTP
+              </button>
+            </>
+          )}
+        </form>
       </div>
     </div>
   );
 }
 
+const TEAL_BORDER = "#7EEAD9";
+const MINT_ACTION = "#7EF7E8";
+const TEXT_MUTED = "#6f6a70";
+
 const styles = {
   container: {
     minHeight: "100vh",
-    background: "#f1f5f9",
-    padding: "2rem 1rem",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    padding: "32px 20px",
+    background: "#ffffff",
+    boxSizing: "border-box",
   },
-  card: {
+  page: {
     width: "100%",
-    maxWidth: "420px",
-    background: "white",
-    borderRadius: "8px",
-    padding: "2rem",
-    boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "1.5rem",
-    paddingBottom: "1rem",
-    borderBottom: "1px solid #e5e7eb",
-  },
-  logo: {
-    fontSize: "1.75rem",
-    fontWeight: "bold",
-    color: "#1e3a8a",
-    margin: 0,
-  },
-  registerLink: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    color: "white",
-    background: "#1e3a8a",
-    padding: "0.5rem 1rem",
-    borderRadius: "6px",
-    textDecoration: "none",
-    transition: "background 0.2s, transform 0.1s",
-  },
-  form: {
+    maxWidth: "520px",
     display: "flex",
     flexDirection: "column",
-    gap: "1rem",
+    alignItems: "center",
+  },
+  logo: {
+    fontFamily: "'Quicksand', 'Comfortaa', 'Nunito', sans-serif",
+    fontWeight: 300,
+    fontSize: "4rem",
+    letterSpacing: "0.05em",
+    color: "#7EF7E8",
+    transform: "scaleX(-1)",
+    display: "inline-block",
+    userSelect: "none",
+    lineHeight: 1,
+    margin: "0 0 40px",
+  },
+  form: {
+    width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    gap: "18px",
   },
   field: {
     display: "flex",
     flexDirection: "column",
-    gap: "0.375rem",
-  },
-  label: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    color: "#374151",
+    gap: "0",
   },
   input: {
-    padding: "0.625rem 0.75rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "4px",
+    width: "100%",
+    height: "86px",
+    padding: "0 18px",
+    border: `1px solid ${TEAL_BORDER}`,
+    borderRadius: "0",
+    background: "#ffffff",
+    color: TEXT_MUTED,
     fontSize: "1rem",
+    fontWeight: 500,
+    letterSpacing: "0.18em",
     outline: "none",
+    boxSizing: "border-box",
+    textAlign: "center",
   },
-  otpInputRow: {
+  otpRow: {
     display: "grid",
     gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-    gap: "0.5rem",
+    gap: "0",
   },
-  otpDigitInput: {
-    height: "3rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "6px",
+  otpInput: {
+    width: "100%",
+    height: "84px",
+    border: `1px solid ${TEAL_BORDER}`,
+    borderRadius: "0",
+    background: "#ffffff",
+    color: TEXT_MUTED,
     textAlign: "center",
-    fontSize: "1.25rem",
-    fontWeight: 600,
+    fontSize: "1.5rem",
+    fontWeight: 500,
     outline: "none",
+    boxSizing: "border-box",
+    marginLeft: "-1px",
   },
-  submitBtn: {
-    marginTop: "0.5rem",
-    padding: "0.875rem",
-    background: "#1e3a8a",
-    color: "white",
+  primaryButton: {
+    width: "100%",
+    height: "62px",
+    marginTop: "8px",
     border: "none",
-    borderRadius: "4px",
+    borderRadius: "0",
+    background: MINT_ACTION,
+    color: "#ffffff",
     fontSize: "1rem",
     fontWeight: 600,
+    letterSpacing: "0.08em",
     cursor: "pointer",
   },
-  resendBtn: {
-    marginTop: "0.5rem",
-    padding: "0.625rem",
-    background: "transparent",
-    color: "#1e3a8a",
-    border: "1px solid #1e3a8a",
-    borderRadius: "4px",
-    fontSize: "0.875rem",
+  secondaryButton: {
+    width: "100%",
+    height: "58px",
+    border: `1px solid ${TEAL_BORDER}`,
+    borderRadius: "0",
+    background: "#ffffff",
+    color: MINT_ACTION,
+    fontSize: "0.95rem",
     fontWeight: 600,
+    letterSpacing: "0.08em",
     cursor: "pointer",
-  },
-  otpInfo: {
-    fontSize: "0.875rem",
-    color: "#6b7280",
-    textAlign: "center",
-    marginBottom: "0.5rem",
   },
   success: {
-    background: "#dcfce7",
-    color: "#166534",
-    padding: "0.75rem",
-    borderRadius: "4px",
-    marginBottom: "1rem",
+    width: "100%",
+    margin: "0 0 16px",
+    color: MINT_ACTION,
+    fontSize: "0.92rem",
     textAlign: "center",
   },
   error: {
+    width: "100%",
+    margin: "0 0 16px",
     color: "#dc2626",
-    fontSize: "0.875rem",
-    marginBottom: "1rem",
+    fontSize: "0.92rem",
     textAlign: "center",
   },
 };

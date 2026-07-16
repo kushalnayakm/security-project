@@ -9,6 +9,12 @@ export const entityService = {
     const response = await apiClient.get("/entity/profile");
     return unwrapResponse(response);
   },
+  async updateProfile(payload) {
+    const response = await apiClient.patch("/entity/profile", payload, {
+      headers: payload instanceof FormData ? { "Content-Type": "multipart/form-data" } : undefined,
+    });
+    return unwrapResponse(response);
+  },
   async getForms() {
     const response = await apiClient.get("/entity/forms");
     return unwrapResponse(response);

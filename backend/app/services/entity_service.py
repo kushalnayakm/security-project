@@ -77,12 +77,16 @@ class EntityService:
         # 1. Create the Entity
         entity = Entity(
             name=payload["name"],
+            branch_name=payload.get("branchName") or payload.get("branch_name"),
             parent_entity_id=str(parent_entity_id) if parent_entity_id else None,
             entity_type=entity_type,
             gst_no=gst_val,
             gst_doc_url=payload.get("gstDocUrl") or payload.get("gst_doc_url"),
             business_type=payload.get("businessType") or payload.get("business_type"),
             address=payload.get("address"),
+            location=payload.get("location"),
+            location_lat=payload.get("locationLat") or payload.get("location_lat"),
+            location_lng=payload.get("locationLng") or payload.get("location_lng"),
             contact_person=payload.get("contactPerson") or payload.get("contact_person"),
             phone=phone_val,
             email=payload.get("email"),
@@ -114,14 +118,20 @@ class EntityService:
         await session.refresh(entity)
         return entity
 
-    async def update_entity(self, session: AsyncSession, entity_id: str, payload: dict) -> Entity:
-        entity = await session.get(Entity, entity_id)
+    async def update_entity(self, session: AsyncSession, entity_id: str, payload: dict, commit: bool = True) -> Entity:
+        from uuid import UUID
+
+        entity_key = UUID(entity_id) if isinstance(entity_id, str) else entity_id
+        entity = await session.get(Entity, entity_key)
         if entity is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No entity found with this ID.")
         mapping = {
+            "branchName": "branch_name",
             "gstNo": "gst_no",
             "gstDocUrl": "gst_doc_url",
             "businessType": "business_type",
+            "locationLat": "location_lat",
+            "locationLng": "location_lng",
             "contactPerson": "contact_person",
             "parentEntityId": "parent_entity_id",
         }
@@ -129,7 +139,9 @@ class EntityService:
             attr = mapping.get(key, key)
             setattr(entity, attr, value)
         entity.updated_at = datetime.now()
-        await session.commit()
+        if commit:
+            await session.commit()
+        await session.flush()
         await session.refresh(entity)
         return entity
 

@@ -6,15 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.dependencies.auth import require_entity_staff, require_entity_owner
+from app.models.entity import Entity
+from app.models.document import Document
 from app.models.dynamic_form import DynamicForm
 from app.models.form_field import FormField
 from app.models.form_submission import FormSubmission
 from app.models.qr_code import QrCode
+from app.models.user import User
 from app.schemas.entity import EntityRegisterRequest, BranchCreate
 from app.schemas.forms import CertificateCreate, DynamicFormCreate, DynamicFormUpdate, PublishFormRequest, WelcomeUpdateRequest
 from app.services.auth_service import AuthService
 from app.services.entity_service import EntityService
-from app.utils.upload import save_upload_file
+from app.utils.upload import save_upload_file, upsert_document_record
 from app.utils.qr_generator import generate_qr_image
 from app.utils.responses import success_response
 
@@ -178,6 +181,118 @@ async def register_entity(
     return success_response(result)
 
 
+@router.patch("/profile", dependencies=[Depends(require_entity_staff)])
+async def update_entity_profile(
+    name: str = Form(...),
+    branchName: str | None = Form(None),
+    phone: str = Form(...),
+    gstNo: str | None = Form(None),
+    address: str | None = Form(None),
+    location: str | None = Form(None),
+    locationLat: str | None = Form(None),
+    locationLng: str | None = Form(None),
+    gstDoc: UploadFile | None = File(None),
+    addressProof: UploadFile | None = File(None),
+    operatorPhoto: UploadFile | None = File(None),
+    session: AsyncSession = Depends(get_db),
+    actor: dict = Depends(require_entity_staff),
+) -> dict:
+    entity_id = actor.get("entity_id")
+    user_id = actor.get("user_id")
+    if not entity_id or not user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Entity session is missing required identifiers.")
+
+    entity = await session.get(Entity, UUID(entity_id) if isinstance(entity_id, str) else entity_id)
+    if entity is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entity not found.")
+
+    payload = {
+        "name": name,
+        "branchName": branchName,
+        "phone": phone,
+        "address": address,
+        "location": location,
+        "locationLat": locationLat,
+        "locationLng": locationLng,
+    }
+    if not entity.gst_no and gstNo:
+        payload["gstNo"] = gstNo
+
+    gst_doc_path = None
+    gst_doc_original = None
+    gst_doc_size = None
+    gst_doc_mime = None
+    if gstDoc:
+        gst_doc_path = await save_upload_file(gstDoc)
+        gst_doc_original = gstDoc.filename
+        gst_doc_size = gstDoc.size
+        gst_doc_mime = gstDoc.content_type
+        payload["gstDocUrl"] = gst_doc_path
+
+    address_proof_path = None
+    address_proof_original = None
+    address_proof_size = None
+    address_proof_mime = None
+    if addressProof:
+        address_proof_path = await save_upload_file(addressProof)
+        address_proof_original = addressProof.filename
+        address_proof_size = addressProof.size
+        address_proof_mime = addressProof.content_type
+
+    operator_photo_path = None
+    operator_photo_original = None
+    operator_photo_size = None
+    operator_photo_mime = None
+    if operatorPhoto:
+        operator_photo_path = await save_upload_file(operatorPhoto)
+        operator_photo_original = operatorPhoto.filename
+        operator_photo_size = operatorPhoto.size
+        operator_photo_mime = operatorPhoto.content_type
+
+    updated_entity = await entity_service.update_entity(session, entity_id, payload)
+
+    if gst_doc_path:
+        await upsert_document_record(
+            session,
+            updated_entity.entity_id,
+            UUID(user_id) if isinstance(user_id, str) else user_id,
+            "gst_document",
+            gst_doc_path,
+            gst_doc_original,
+            gst_doc_size,
+            gst_doc_mime,
+        )
+    if address_proof_path:
+        await upsert_document_record(
+            session,
+            updated_entity.entity_id,
+            UUID(user_id) if isinstance(user_id, str) else user_id,
+            "address_proof",
+            address_proof_path,
+            address_proof_original,
+            address_proof_size,
+            address_proof_mime,
+        )
+    if operator_photo_path:
+        await upsert_document_record(
+            session,
+            updated_entity.entity_id,
+            UUID(user_id) if isinstance(user_id, str) else user_id,
+            "operator_photo",
+            operator_photo_path,
+            operator_photo_original,
+            operator_photo_size,
+            operator_photo_mime,
+        )
+        user = await session.get(User, UUID(user_id) if isinstance(user_id, str) else user_id)
+        if user:
+            user.photo_url = operator_photo_path
+
+    await session.commit()
+
+    return success_response({"entity_id": str(updated_entity.entity_id), "updated": True})
+
+
 @router.post("/branches", dependencies=[Depends(require_entity_owner)], status_code=status.HTTP_201_CREATED)
 async def create_branch(
     payload: BranchCreate,
@@ -197,11 +312,6 @@ async def get_entity_profile(
     session: AsyncSession = Depends(get_db),
     actor: dict = Depends(require_entity_staff)
 ) -> dict:
-    from app.models.entity import Entity
-    from app.models.document import Document
-    from app.models.qr_code import QrCode
-    from app.models.user import User
-
     entity_id = actor.get("entity_id")
     if not entity_id:
         raise HTTPException(status_code=400, detail="Entity ID is required in auth token context.")
@@ -210,17 +320,24 @@ async def get_entity_profile(
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found.")
 
-    # Get logo
+    target_entity_id = UUID(entity_id) if isinstance(entity_id, str) else entity_id
+
     logo_doc = await session.scalar(
-        select(Document).where(Document.entity_id == (UUID(entity_id) if isinstance(entity_id, str) else entity_id), Document.document_type == "entity_logo")
+        select(Document).where(Document.entity_id == target_entity_id, Document.document_type == "entity_logo")
     )
     logo_url = logo_doc.file_path if logo_doc else None
 
-    # Get operator photo
     photo_doc = await session.scalar(
-        select(Document).where(Document.entity_id == (UUID(entity_id) if isinstance(entity_id, str) else entity_id), Document.document_type == "operator_photo")
+        select(Document).where(Document.entity_id == target_entity_id, Document.document_type == "operator_photo")
     )
     operator_photo = photo_doc.file_path if photo_doc else None
+
+    gst_doc = await session.scalar(
+        select(Document).where(Document.entity_id == target_entity_id, Document.document_type == "gst_document")
+    )
+    address_proof = await session.scalar(
+        select(Document).where(Document.entity_id == target_entity_id, Document.document_type == "address_proof")
+    )
     
     if not operator_photo and actor.get("user_id"):
         user_id = actor.get("user_id")
@@ -230,7 +347,7 @@ async def get_entity_profile(
 
     # Get QR Code of first form
     first_form = await session.scalar(
-        select(DynamicForm).where(DynamicForm.entity_id == (UUID(entity_id) if isinstance(entity_id, str) else entity_id)).order_by(DynamicForm.created_at.asc())
+        select(DynamicForm).where(DynamicForm.entity_id == target_entity_id).order_by(DynamicForm.created_at.asc())
     )
     qr_image_url = None
     if first_form:
@@ -249,12 +366,19 @@ async def get_entity_profile(
 
     return success_response({
         "name": entity.name,
+        "branch_name": entity.branch_name,
         "parent_name": parent_name,
         "entity_type": entity.entity_type,
         "gst_no": entity.gst_no,
         "phone": entity.phone,
         "email": entity.email,
+        "address": entity.address,
+        "location": entity.location,
+        "location_lat": entity.location_lat,
+        "location_lng": entity.location_lng,
         "status": entity.status,
+        "gst_doc_url": gst_doc.file_path if gst_doc else entity.gst_doc_url,
+        "address_proof_url": address_proof.file_path if address_proof else None,
         "logo_url": logo_url,
         "operator_photo": operator_photo,
         "qr_image_url": qr_image_url,

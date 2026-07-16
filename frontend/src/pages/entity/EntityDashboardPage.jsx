@@ -131,6 +131,11 @@ export function EntityDashboardPage() {
     authEntity?.branch_name ||
     (mergedProfile.entity_type === "BRANCH" ? mergedProfile.parent_name || "Branch" : "Main Campus");
   const gstNo = mergedProfile.gst_no || mergedProfile.gstNo || "";
+  const phone = mergedProfile.phone || authEntity?.phone || "";
+  const address = mergedProfile.address || "";
+  const locationText = mergedProfile.location || "";
+  const gstDocumentUrl = resolveAssetUrl(mergedProfile.gst_doc_url);
+  const addressProofUrl = resolveAssetUrl(mergedProfile.address_proof_url);
   const isLaptop = viewportWidth <= 1440;
   const isTablet = viewportWidth <= 1100;
   const isMobile = viewportWidth <= 820;
@@ -201,8 +206,23 @@ export function EntityDashboardPage() {
             </div>
 
             <div style={styles.infoBlock}>
+              <span style={styles.infoLabel}>Phone</span>
+              <span style={styles.infoValue}>{phone || "Not Available"}</span>
+            </div>
+
+            <div style={styles.infoBlock}>
               <span style={styles.infoLabel}>Branch Name</span>
               <span style={styles.infoValue}>{branchName}</span>
+            </div>
+
+            <div style={styles.infoBlock}>
+              <span style={styles.infoLabel}>Address</span>
+              <span style={styles.infoValue}>{address || "Not Available"}</span>
+            </div>
+
+            <div style={styles.infoBlock}>
+              <span style={styles.infoLabel}>Location</span>
+              <span style={styles.infoValue}>{locationText || "Not Available"}</span>
             </div>
 
             <div style={styles.separator} />
@@ -226,6 +246,30 @@ export function EntityDashboardPage() {
                 <img src={qrImageUrl} alt="Entity QR Code" style={styles.qrImage} />
               ) : (
                 <div style={styles.qrEmpty}>QR Not Assigned</div>
+              )}
+            </div>
+
+            <div style={styles.separator} />
+
+            <div style={styles.infoBlock}>
+              <span style={styles.infoLabel}>GST Document</span>
+              {gstDocumentUrl ? (
+                <a href={gstDocumentUrl} target="_blank" rel="noreferrer" style={styles.assetLink}>
+                  View GST document
+                </a>
+              ) : (
+                <span style={styles.infoValue}>Not Available</span>
+              )}
+            </div>
+
+            <div style={styles.infoBlock}>
+              <span style={styles.infoLabel}>Address Proof</span>
+              {addressProofUrl ? (
+                <a href={addressProofUrl} target="_blank" rel="noreferrer" style={styles.assetLink}>
+                  View address proof
+                </a>
+              ) : (
+                <span style={styles.infoValue}>Not Available</span>
               )}
             </div>
 
@@ -444,6 +488,14 @@ const styles = {
     color: "#121d35",
     fontSize: "15px",
     fontWeight: 500,
+    wordBreak: "break-word",
+  },
+  assetLink: {
+    display: "inline-block",
+    color: "#10a7b4",
+    fontSize: "14px",
+    fontWeight: 600,
+    textDecoration: "none",
   },
   separator: {
     borderTop: "1px solid #99e4e8",

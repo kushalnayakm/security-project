@@ -18,6 +18,31 @@ export const apiClient = axios.create({
   },
 });
 
+function buildErrorMessage(error) {
+  const status = error.response?.status;
+  const data = error.response?.data;
+  const backendMessage =
+    data?.error?.message ||
+    data?.detail ||
+    (typeof data === "string" ? data : "");
+
+  if (status === 404) {
+    return backendMessage || "Requested API endpoint was not found (404).";
+  }
+  if (status === 401) {
+    return backendMessage || "Authentication failed or session expired (401).";
+  }
+  if (status === 500) {
+    return backendMessage || "Server error occurred (500).";
+  }
+
+  if (error.code === "ERR_NETWORK") {
+    return "Network or CORS error while contacting the API.";
+  }
+
+  return backendMessage || error.message || "Request failed";
+}
+
 apiClient.interceptors.request.use((config) => {
   const token = getTokenFn();
   if (token && !config.headers.Authorization) {
@@ -33,9 +58,29 @@ apiClient.interceptors.response.use(
       onUnauthorizedFn();
     }
 
-    const apiError = error.response?.data?.error;
+    const requestUrl = `${error.config?.baseURL || ""}${error.config?.url || ""}`;
+    const status = error.response?.status || "NO_RESPONSE";
+    const isCorsLikeFailure = error.code === "ERR_NETWORK" && !error.response;
+
+    console.error("API request failed", {
+      method: error.config?.method?.toUpperCase(),
+      url: requestUrl,
+      status,
+      code: error.code,
+      isCorsLikeFailure,
+      response: error.response?.data,
+      message: error.message,
+    });
+
+    const normalizedError = new Error(buildErrorMessage(error));
+    normalizedError.status = error.response?.status || null;
+    normalizedError.code = error.code || null;
+    normalizedError.url = requestUrl;
+    normalizedError.method = error.config?.method?.toUpperCase() || null;
+    normalizedError.isCorsLikeFailure = isCorsLikeFailure;
+
     return Promise.reject(
-      new Error(apiError?.message || error.message || "Request failed"),
+      normalizedError,
     );
   },
 );

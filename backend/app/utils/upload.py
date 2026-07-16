@@ -59,3 +59,40 @@ async def save_document_record(session, entity_id: str, user_id: str, document_t
     session.add(doc)
     await session.flush()
     return doc
+
+
+async def upsert_document_record(
+    session,
+    entity_id: str,
+    user_id: str,
+    document_type: str,
+    file_path: str,
+    original_filename: str,
+    file_size: int,
+    mime_type: str,
+):
+    """Insert or replace a document record for a given entity/document type."""
+    from sqlalchemy import select
+    from app.models.document import Document
+
+    existing = await session.scalar(
+        select(Document).where(Document.entity_id == entity_id, Document.document_type == document_type)
+    )
+    if existing:
+        existing.user_id = user_id
+        existing.file_path = file_path
+        existing.original_filename = original_filename
+        existing.file_size = file_size
+        existing.mime_type = mime_type
+        return existing
+
+    return await save_document_record(
+        session,
+        entity_id,
+        user_id,
+        document_type,
+        file_path,
+        original_filename,
+        file_size,
+        mime_type,
+    )
