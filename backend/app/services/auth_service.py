@@ -353,9 +353,10 @@ class AuthService:
         email = payload.get("email")
         gst_no = payload.get("gstNo")
         
-        existing_entity = await session.scalar(select(Entity).where(Entity.email == email))
-        if existing_entity is not None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Entity email already exists.")
+        if email:
+            existing_entity = await session.scalar(select(Entity).where(Entity.email == email))
+            if existing_entity is not None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Entity email already exists.")
         if gst_no:
             existing_gst = await session.scalar(select(Entity).where(Entity.gst_no == gst_no))
             if existing_gst is not None:
@@ -395,7 +396,6 @@ class AuthService:
                 location=payload.get("location"),
                 location_lat=payload.get("locationLat"),
                 location_lng=payload.get("locationLng"),
-                branch_name=payload.get("branchName"),
                 contact_person=payload.get("contactPerson"),
                 phone=phone,
                 email=email,

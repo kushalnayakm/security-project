@@ -50,7 +50,7 @@ class EntityRegisterRequest(BaseModel):
         serialization_alias="contactPerson",
     )
     phone: str
-    email: EmailStr
+    email: EmailStr | None = None
     password: str
 
 
@@ -97,7 +97,6 @@ class EntityRead(ORMModel):
     parent_entity_id: UUID | None = None
     entity_type: str = "MAIN"
     name: str
-    branch_name: str | None = None
     gst_no: str | None
     gst_doc_url: str | None = None
     business_type: str | None

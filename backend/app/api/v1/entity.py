@@ -1,6 +1,6 @@
 import logging
 from uuid import UUID
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.entity import EntityRegisterRequest, BranchCreate
 from app.schemas.forms import CertificateCreate, DynamicFormCreate, DynamicFormUpdate, PublishFormRequest, WelcomeUpdateRequest
 from app.services.auth_service import AuthService
+from app.services.admin_service import AdminService
 from app.services.entity_service import EntityService
 from app.utils.upload import save_upload_file, upsert_document_record
 from app.utils.qr_generator import generate_qr_image
@@ -25,6 +26,7 @@ from app.utils.responses import success_response
 router = APIRouter(prefix="/entity")
 entity_service = EntityService()
 auth_service = AuthService()
+admin_service = AdminService()
 logger = logging.getLogger(__name__)
 
 
@@ -45,6 +47,7 @@ def _serialize_field(field: FormField) -> dict:
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_entity(
+    request: Request,
     # Entity Info (Step 1)
     name: str = Form(...),
     gstNo: str = Form(...),
@@ -73,9 +76,9 @@ async def register_entity(
     entityLogo: UploadFile | None = File(None),
     operatorPhoto: UploadFile | None = File(None),
     userDocument: UploadFile | None = File(None),
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ) -> dict:
-    logger.info("Request received for entity registration")
+    logger.info("Registration request received")
     
     # Save files to disk first
     gst_doc_path = None
@@ -87,6 +90,7 @@ async def register_entity(
         gst_doc_original = gstDoc.filename
         gst_doc_size = gstDoc.size
         gst_doc_mime = gstDoc.content_type
+        logger.info("File uploaded: gstDoc -> %s", gst_doc_original)
         
     address_proof_path = None
     address_proof_original = None
@@ -97,6 +101,7 @@ async def register_entity(
         address_proof_original = addressProof.filename
         address_proof_size = addressProof.size
         address_proof_mime = addressProof.content_type
+        logger.info("File uploaded: addressProof -> %s", address_proof_original)
     
     entity_logo_path = None
     entity_logo_original = None
@@ -107,6 +112,7 @@ async def register_entity(
         entity_logo_original = entityLogo.filename
         entity_logo_size = entityLogo.size
         entity_logo_mime = entityLogo.content_type
+        logger.info("File uploaded: entityLogo -> %s", entity_logo_original)
     
     operator_photo_path = None
     operator_photo_original = None
@@ -117,6 +123,7 @@ async def register_entity(
         operator_photo_original = operatorPhoto.filename
         operator_photo_size = operatorPhoto.size
         operator_photo_mime = operatorPhoto.content_type
+        logger.info("File uploaded: operatorPhoto -> %s", operator_photo_original)
     
     user_document_path = None
     user_document_original = None
@@ -127,9 +134,9 @@ async def register_entity(
         user_document_original = userDocument.filename
         user_document_size = userDocument.size
         user_document_mime = userDocument.content_type
+        logger.info("File uploaded: userDocument -> %s", user_document_original)
 
-    # Call the updated register_entity service which no longer needs password
-    from app.schemas.entity import EntityRegisterRequest
+    logger.info("Validation successful")
     payload = EntityRegisterRequest(
         name=name,
         gstNo=gstNo,
@@ -141,6 +148,7 @@ async def register_entity(
         email=email,
         password="",  # Empty password - OTP based auth
     )
+
     # Add extra fields that the service might need
     payload_dict = payload.model_dump()
     payload_dict.update({
@@ -161,10 +169,10 @@ async def register_entity(
         "locationLat": locationLat,
         "locationLng": locationLng,
     })
-    
-    logger.info("Entity registration request model: %s", payload)
-    logger.info("Validation successful for entity registration")
+
+    logger.info("Entity registration request model validated: %s", payload)
     result = await auth_service.register_entity(session, payload_dict)
+    logger.info("Entity inserted: entity_id=%s user_id=%s", result.get("entity_id"), result.get("user_id"))
     
     # Save document records to database with entity_id and user_id
     entity_id = result.get("entity_id")
@@ -201,6 +209,24 @@ async def register_entity(
             )
     
     await session.commit()
+    logger.info("Transaction committed")
+
+    if entity_id and result.get("user_id"):
+        try:
+            await admin_service.write_audit_log(
+                session=session,
+                user_id=str(result.get("user_id")),
+                action="ENTITY_REGISTER",
+                target_type="ENTITY",
+                target_id=str(entity_id),
+                ip_address=request.client.host if request and request.client else None,
+            )
+            logger.info("Audit log created: action=ENTITY_REGISTER target_id=%s", entity_id)
+        except Exception as exc:
+            logger.error("Failed to create audit log for entity registration: %s", exc)
+            # Registration already succeeded; keep the entity commit intact and
+            # surface the audit failure only in logs.
+
     return success_response(result)
 
 

@@ -3,44 +3,19 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
 import { entityService } from "../../services/entityService";
+import { GoogleMapsLocationPicker } from "../../components/GoogleMapsLocationPicker";
+import { useRegistrationDraft } from "../../context/RegistrationDraftContext";
 
 const MINT_FILL = "#D6FBF5";
 const MINT_BORDER = "#2FBF9B";
 const MINT_DONE = "#9FE1CB";
 
-function parseGoogleMapsValue(input) {
-  const raw = String(input || "").trim();
-  if (!raw) {
-    return { formatted: "", lat: "", lng: "" };
-  }
-
-  try {
-    const url = new URL(raw);
-    const placeMatch = decodeURIComponent(url.pathname).match(/\/place\/([^/]+)/i);
-    const query = url.searchParams.get("q") || url.searchParams.get("query");
-    const coordsMatch = raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-    
-    let formatted = (placeMatch?.[1] || query || "").replace(/\+/g, " ").trim();
-    if (!formatted) {
-      formatted = raw;
-    }
-    
-    // Format into multi-line address by splitting commas
-    formatted = formatted.split(",").map(part => part.trim()).filter(Boolean).join("\n");
-    
-    return {
-      formatted,
-      lat: coordsMatch?.[1] || "",
-      lng: coordsMatch?.[2] || "",
-    };
-  } catch {
-    return { formatted: raw, lat: "", lng: "" };
-  }
-}
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
 export function EntityRegisterPage() {
   const navigate = useNavigate();
   const { entity: authEntity, isAuthenticated, logout } = useAuth();
+  const { setDocuments, setFormData: setDraftFormData, registerObjectUrl } = useRegistrationDraft();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -49,7 +24,8 @@ export function EntityRegisterPage() {
   const [otp, setOtp] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpVerified, setOtpVerified] = useState(Boolean(isAuthenticated));
-  const [locating, setLocating] = useState(false);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -59,6 +35,7 @@ export function EntityRegisterPage() {
     gstDoc: null,
     address: "",
     addressProof: null,
+    operatorPhoto: null,
     location: "",
     locationLat: "",
     locationLng: "",
@@ -135,29 +112,35 @@ export function EntityRegisterPage() {
 
   const handleFileRemove = (field) => {
     setFormData((prev) => ({ ...prev, [field]: null }));
+    setContextMenu(null);
+  };
+
+  const handleFileContextMenu = (field, event) => {
+    event.preventDefault();
+    setContextMenu({ field, x: event.clientX, y: event.clientY });
+  };
+
+  const handleFileDoubleClick = (field) => {
+    if (window.confirm("Remove selected document?")) {
+      handleFileRemove(field);
+    }
   };
 
   const handleLocatePick = () => {
     setError("");
-    setLocating(true);
-    const querySeed = formData.location || formData.address || formData.name || "business location";
-    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(querySeed)}`, "_blank", "noopener,noreferrer");
-    const pastedValue = window.prompt(
-      "After selecting the place in Google Maps, paste the full formatted address or the Google Maps link here.",
-      formData.location || "",
-    );
-    setLocating(false);
-
-    if (!pastedValue) {
+    if (!GOOGLE_MAPS_API_KEY) {
+      setError("Google Maps is unavailable. Location is optional.");
       return;
     }
+    setMapModalOpen(true);
+  };
 
-    const parsed = parseGoogleMapsValue(pastedValue);
+  const handleLocationSelect = (locationData) => {
     setFormData((prev) => ({
       ...prev,
-      location: parsed.formatted,
-      locationLat: parsed.lat || prev.locationLat,
-      locationLng: parsed.lng || prev.locationLng,
+      location: locationData.formatted,
+      locationLat: locationData.lat,
+      locationLng: locationData.lng,
     }));
   };
 
@@ -198,8 +181,14 @@ export function EntityRegisterPage() {
     handleSendOtp();
   };
 
-  const requiredFields = ["name", "phone", "gstNo", "location"];
-  const isStepValid = requiredFields.every((field) => formData[field]) && otpVerified;
+  // Mandatory fields: name, branchName, phone, gstNo, address, gstDoc, addressProof
+  // Optional fields: location, operatorPhoto
+  const mandatoryFields = ["name", "branchName", "phone", "gstNo", "address"];
+  const mandatoryFiles = ["gstDoc", "addressProof"];
+  const isStepValid =
+    mandatoryFields.every((field) => formData[field]) &&
+    mandatoryFiles.every((field) => formData[field]) &&
+    otpVerified;
 
   const summaryStatus = useMemo(
     () => (otpVerified ? "PHONE_VERIFIED" : "PENDING_VERIFICATION"),
@@ -217,7 +206,7 @@ export function EntityRegisterPage() {
     return <p style={styles.error}>{error}</p>;
   };
 
-  const handleContinue = async () => {
+  const handleContinue = () => {
     if (!isStepValid) {
       if (!otpVerified) {
         setError("Please verify your phone number with OTP before continuing");
@@ -228,47 +217,62 @@ export function EntityRegisterPage() {
     }
 
     setError("");
-    setSubmitting(true);
-    try {
-      const payload = new FormData();
-      payload.append("name", formData.name);
-      payload.append("branchName", formData.branchName || "");
-      payload.append("phone", formData.phone);
-      payload.append("gstNo", formData.gstNo);
-      payload.append("address", formData.address || "");
-      payload.append("location", formData.location || "");
-      payload.append("locationLat", formData.locationLat || "");
-      payload.append("locationLng", formData.locationLng || "");
-      if (formData.gstDoc instanceof File) {
-        payload.append("gstDoc", formData.gstDoc);
-      }
-      if (formData.addressProof instanceof File) {
-        payload.append("addressProof", formData.addressProof);
-      }
 
-      if (isAuthenticated) {
-        await entityService.updateProfile(payload);
-        navigate("/entity/dashboard");
-      } else {
-        // Construct standard fallback email for registration
-        const cleanName = formData.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-        payload.append("email", `${cleanName || "info"}@example.com`);
-        payload.append("password", ""); // Required by backend EntityRegisterRequest schema
-        const res = await authService.registerEntity(payload);
-        if (res.token) {
-          localStorage.setItem("token", res.token);
-          localStorage.setItem("entity", JSON.stringify(res.entity));
-          localStorage.setItem("role", res.role);
-          window.location.href = "/entity/dashboard";
-        } else {
-          navigate("/auth/entity/login");
-        }
-      }
-    } catch (err) {
-      setError(err.message || "Failed to update entity profile.");
-    } finally {
-      setSubmitting(false);
+    // Build document metadata for the preview page. File objects are kept as real
+    // File instances the whole way through — they are handed to the shared
+    // RegistrationDraftContext below, never serialized to a string anywhere.
+    const documents = [];
+    if (formData.gstDoc instanceof File) {
+      const previewUrl = URL.createObjectURL(formData.gstDoc);
+      registerObjectUrl(previewUrl);
+      documents.push({
+        field: "gstDoc",
+        file: formData.gstDoc,
+        name: formData.gstDoc.name,
+        type: formData.gstDoc.type,
+        size: formData.gstDoc.size,
+        previewUrl,
+      });
     }
+    if (formData.addressProof instanceof File) {
+      const previewUrl = URL.createObjectURL(formData.addressProof);
+      registerObjectUrl(previewUrl);
+      documents.push({
+        field: "addressProof",
+        file: formData.addressProof,
+        name: formData.addressProof.name,
+        type: formData.addressProof.type,
+        size: formData.addressProof.size,
+        previewUrl,
+      });
+    }
+    if (formData.operatorPhoto instanceof File) {
+      const previewUrl = URL.createObjectURL(formData.operatorPhoto);
+      registerObjectUrl(previewUrl);
+      documents.push({
+        field: "operatorPhoto",
+        file: formData.operatorPhoto,
+        name: formData.operatorPhoto.name,
+        type: formData.operatorPhoto.type,
+        size: formData.operatorPhoto.size,
+        previewUrl,
+      });
+    }
+
+    // Hand the draft to the shared in-memory context instead of sessionStorage.
+    setDocuments(documents);
+    setDraftFormData({
+      name: formData.name,
+      branchName: formData.branchName,
+      phone: formData.phone,
+      gstNo: formData.gstNo,
+      address: formData.address,
+      location: formData.location,
+      locationLat: formData.locationLat,
+      locationLng: formData.locationLng,
+    });
+
+    navigate("/entity/register/preview");
   };
 
   return (
@@ -284,94 +288,137 @@ export function EntityRegisterPage() {
         <div style={styles.form}>
           <div style={styles.grid}>
             <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>ENTITY NAME</label>
+              <label style={styles.gridLabel}>ENTITY NAME *</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 style={styles.gridInput}
+                placeholder="Enter entity name"
                 required
               />
             </div>
             <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>BRANCH NAME</label>
+              <label style={styles.gridLabel}>BRANCH NAME *</label>
               <input
                 type="text"
                 value={formData.branchName}
                 onChange={(e) => handleChange("branchName", e.target.value)}
                 style={styles.gridInput}
+                placeholder="Enter branch name"
+                required
               />
             </div>
             <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>PHONE NUMBER</label>
+              <label style={styles.gridLabel}>PHONE NUMBER *</label>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
                 style={styles.gridInput}
+                placeholder="Enter phone number"
                 required
               />
             </div>
 
             <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>GST NUMBER</label>
+              <label style={styles.gridLabel}>GST NUMBER *</label>
               <input
                 type="text"
                 value={formData.gstNo}
                 onChange={(e) => handleChange("gstNo", e.target.value.toUpperCase())}
                 style={styles.gridInput}
+                placeholder="Enter GST number"
                 required
               />
             </div>
             <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>ADDRESS</label>
+              <label style={styles.gridLabel}>ADDRESS *</label>
               <input
                 type="text"
                 value={formData.address}
                 onChange={(e) => handleChange("address", e.target.value)}
                 style={styles.gridInput}
+                placeholder="Enter full address"
+                required
               />
             </div>
             <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>LOCATION</label>
-              <div style={styles.locationField}>{locationDisplay}</div>
+              <label style={styles.gridLabel}>LOCATION (Optional)</label>
+              <div style={styles.locationField}>
+                {formData.location || "Not Provided"}
+              </div>
             </div>
 
-            <label style={{ ...styles.attachCell, background: formData.gstDoc ? "#E8FDFB" : MINT_FILL }}>
+            {/* GST Certificate - mandatory */}
+            <label
+              style={{ ...styles.attachCell, background: formData.gstDoc ? "#E8FDFB" : MINT_FILL }}
+              onContextMenu={(e) => formData.gstDoc && handleFileContextMenu("gstDoc", e)}
+              onDoubleClick={() => formData.gstDoc && handleFileDoubleClick("gstDoc")}
+            >
               <span style={{ ...styles.attachLabel, transform: formData.gstDoc ? "none" : "rotate(-25deg)" }}>
-                {formData.gstDoc ? `✓ ${formData.gstDoc.name}` : "ATTACH GST CERTIFICATE"}
+                {formData.gstDoc ? `✓ ${formData.gstDoc.name}` : "ATTACH GST CERTIFICATE *"}
               </span>
               <input
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
                 onChange={(e) => handleFileChange("gstDoc", e)}
                 style={styles.hiddenInput}
               />
             </label>
 
-            <label style={{ ...styles.attachCell, background: formData.addressProof ? "#E8FDFB" : MINT_FILL }}>
+            {/* Address Proof - mandatory */}
+            <label
+              style={{ ...styles.attachCell, background: formData.addressProof ? "#E8FDFB" : MINT_FILL }}
+              onContextMenu={(e) => formData.addressProof && handleFileContextMenu("addressProof", e)}
+              onDoubleClick={() => formData.addressProof && handleFileDoubleClick("addressProof")}
+            >
               <span style={{ ...styles.attachLabel, transform: formData.addressProof ? "none" : "rotate(-25deg)" }}>
-                {formData.addressProof ? `✓ ${formData.addressProof.name}` : "ATTACH ADDRESS PROOF"}
+                {formData.addressProof ? `✓ ${formData.addressProof.name}` : "ATTACH ADDRESS PROOF *"}
               </span>
               <input
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
                 onChange={(e) => handleFileChange("addressProof", e)}
                 style={styles.hiddenInput}
               />
             </label>
 
+            {/* Operator Photo - optional */}
+            <label
+              style={{ ...styles.attachCell, background: formData.operatorPhoto ? "#E8FDFB" : MINT_FILL }}
+              onContextMenu={(e) => formData.operatorPhoto && handleFileContextMenu("operatorPhoto", e)}
+              onDoubleClick={() => formData.operatorPhoto && handleFileDoubleClick("operatorPhoto")}
+            >
+              <span style={{ ...styles.attachLabel, transform: formData.operatorPhoto ? "none" : "rotate(-25deg)" }}>
+                {formData.operatorPhoto ? `✓ ${formData.operatorPhoto.name}` : "ATTACH OPERATOR PHOTO (Optional)"}
+              </span>
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp"
+                onChange={(e) => handleFileChange("operatorPhoto", e)}
+                style={styles.hiddenInput}
+              />
+            </label>
+
+            {/* Google Maps - optional */}
             <div
               onClick={handleLocatePick}
               style={{
                 ...styles.attachCell,
                 ...styles.mapCell,
                 background: formData.location ? "#E8FDFB" : MINT_FILL,
-                cursor: "pointer",
+                cursor: GOOGLE_MAPS_API_KEY ? "pointer" : "default",
+                opacity: GOOGLE_MAPS_API_KEY ? 1 : 0.6,
               }}
+              title={GOOGLE_MAPS_API_KEY ? "Click to select location on map" : "Google Maps API key not configured"}
             >
               <span style={{ ...styles.attachLabel, transform: formData.location ? "none" : "rotate(-25deg)" }}>
-                {locating ? "LOCATING..." : formData.location ? "✓ Location Selected" : "LOCATE IN GOOGLE MAPS"}
+                {formData.location
+                  ? "✓ Location Selected"
+                  : GOOGLE_MAPS_API_KEY
+                    ? "LOCATE IN GOOGLE MAPS (Optional)"
+                    : "GOOGLE MAPS UNAVAILABLE"}
               </span>
             </div>
           </div>
@@ -413,11 +460,12 @@ export function EntityRegisterPage() {
           <div style={styles.summaryBox}>
             <h4 style={styles.summaryTitle}>Registration Summary</h4>
             <div style={styles.summaryGrid}>
-              <div><strong>Entity Name:</strong> {formData.name}</div>
-              <div><strong>Branch:</strong> {formData.branchName}</div>
-              <div><strong>GST:</strong> {formData.gstNo}</div>
-              <div><strong>Phone:</strong> {formData.phone}</div>
-              <div><strong>Location:</strong> {formData.location}</div>
+              <div><strong>Entity Name:</strong> {formData.name || "—"}</div>
+              <div><strong>Branch:</strong> {formData.branchName || "—"}</div>
+              <div><strong>GST:</strong> {formData.gstNo || "—"}</div>
+              <div><strong>Phone:</strong> {formData.phone || "—"}</div>
+              <div><strong>Address:</strong> {formData.address || "—"}</div>
+              <div><strong>Location:</strong> {formData.location || "Not Provided"}</div>
               <div><strong>Status:</strong> <span style={styles.pendingTag}>{summaryStatus}</span></div>
             </div>
           </div>
@@ -437,6 +485,47 @@ export function EntityRegisterPage() {
           </div>
         </div>
       </div>
+
+      {/* Context Menu for file removal */}
+      {contextMenu && (
+        <>
+          <div
+            style={styles.contextMenuOverlay}
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+          />
+          <div
+            style={{
+              ...styles.contextMenu,
+              left: contextMenu.x,
+              top: contextMenu.y,
+            }}
+          >
+            <div style={styles.contextMenuTitle}>Remove selected document?</div>
+            <div style={styles.contextMenuActions}>
+              <button
+                onClick={() => handleFileRemove(contextMenu.field)}
+                style={styles.contextMenuYesBtn}
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setContextMenu(null)}
+                style={styles.contextMenuNoBtn}
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      <GoogleMapsLocationPicker
+        open={mapModalOpen}
+        onClose={() => setMapModalOpen(false)}
+        onSelect={handleLocationSelect}
+        initialQuery={formData.location || formData.address || formData.name || ""}
+      />
     </div>
   );
 }
@@ -692,4 +781,55 @@ const styles = {
     textAlign: "center",
     marginTop: "4rem",
   },
+  contextMenuOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+    background: "transparent",
+  },
+  contextMenu: {
+    position: "fixed",
+    zIndex: 1000,
+    background: "#ffffff",
+    border: `2px solid ${MINT_BORDER}`,
+    borderRadius: "6px",
+    boxShadow: "0 8px 30px rgba(0,0,0,0.15)",
+    padding: "0.75rem 1rem",
+    minWidth: "220px",
+  },
+  contextMenuTitle: {
+    fontSize: "0.85rem",
+    fontWeight: 600,
+    color: "#333",
+    marginBottom: "0.65rem",
+  },
+  contextMenuActions: {
+    display: "flex",
+    gap: "0.5rem",
+    justifyContent: "flex-end",
+  },
+  contextMenuYesBtn: {
+    padding: "0.4rem 1rem",
+    background: "#DC2626",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  contextMenuNoBtn: {
+    padding: "0.4rem 1rem",
+    background: "transparent",
+    color: "#0F6E56",
+    border: `1px solid ${MINT_BORDER}`,
+    borderRadius: "4px",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
 };
+
