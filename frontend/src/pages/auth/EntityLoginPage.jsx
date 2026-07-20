@@ -126,7 +126,7 @@ export function EntityLoginPage() {
   return (
     <div style={styles.container}>
       <div style={styles.page}>
-        <h1 style={styles.logo}>DID</h1>
+        <img src="/did-logo.png" alt="DID" style={styles.logo} />
 
         {success && step === 2 ? <p style={styles.success}>{success}</p> : null}
         {error ? <p style={styles.error}>{error}</p> : null}
@@ -226,13 +226,10 @@ const styles = {
     alignItems: "center",
   },
   logo: {
-    fontFamily: "'Quicksand', 'Comfortaa', 'Nunito', sans-serif",
-    fontWeight: 300,
-    fontSize: "4rem",
-    letterSpacing: "0.05em",
-    color: "#7EF7E8",
-    transform: "scaleX(-1)",
-    display: "inline-block",
+    width: "clamp(140px, 30vw, 180px)",
+    height: "auto",
+    objectFit: "contain",
+    display: "block",
     userSelect: "none",
     lineHeight: 1,
     margin: "0 0 40px",

@@ -279,7 +279,7 @@ export function EntityRegisterPage() {
     <div style={styles.container}>
       <div style={styles.page}>
         <div style={styles.header}>
-          <h1 style={styles.logo}>DID</h1>
+          <img src="/did-logo.png" alt="DID" style={styles.logo} />
           <Link to="/auth/entity/login" style={styles.backLink}>
             Back to Login
           </Link>
@@ -552,9 +552,10 @@ const styles = {
     borderBottom: `2px solid ${MINT_BORDER}`,
   },
   logo: {
-    fontSize: "1.75rem",
-    fontWeight: "bold",
-    color: "#0F6E56",
+    width: "clamp(120px, 24vw, 160px)",
+    height: "auto",
+    objectFit: "contain",
+    display: "block",
     margin: 0,
   },
   backLink: {

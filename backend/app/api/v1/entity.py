@@ -18,7 +18,7 @@ from app.schemas.forms import CertificateCreate, DynamicFormCreate, DynamicFormU
 from app.services.auth_service import AuthService
 from app.services.admin_service import AdminService
 from app.services.entity_service import EntityService
-from app.utils.upload import save_upload_file, upsert_document_record
+from app.utils.upload import save_document_record, save_entity_document, upsert_document_record
 from app.utils.qr_generator import generate_qr_image
 from app.utils.responses import success_response
 
@@ -80,61 +80,57 @@ async def register_entity(
 ) -> dict:
     logger.info("Registration request received")
     
-    # Save files to disk first
+    # Keep uploads in memory until we know the persisted entity_id so the
+    # resulting URLs can be stored in the required per-entity folder layout.
+    gst_doc_file = gstDoc
     gst_doc_path = None
     gst_doc_original = None
     gst_doc_size = None
     gst_doc_mime = None
     if gstDoc:
-        gst_doc_path = await save_upload_file(gstDoc)
         gst_doc_original = gstDoc.filename
         gst_doc_size = gstDoc.size
         gst_doc_mime = gstDoc.content_type
-        logger.info("File uploaded: gstDoc -> %s", gst_doc_original)
         
+    address_proof_file = addressProof
     address_proof_path = None
     address_proof_original = None
     address_proof_size = None
     address_proof_mime = None
     if addressProof:
-        address_proof_path = await save_upload_file(addressProof)
         address_proof_original = addressProof.filename
         address_proof_size = addressProof.size
         address_proof_mime = addressProof.content_type
-        logger.info("File uploaded: addressProof -> %s", address_proof_original)
     
+    entity_logo_file = entityLogo
     entity_logo_path = None
     entity_logo_original = None
     entity_logo_size = None
     entity_logo_mime = None
     if entityLogo:
-        entity_logo_path = await save_upload_file(entityLogo)
         entity_logo_original = entityLogo.filename
         entity_logo_size = entityLogo.size
         entity_logo_mime = entityLogo.content_type
-        logger.info("File uploaded: entityLogo -> %s", entity_logo_original)
     
+    operator_photo_file = operatorPhoto
     operator_photo_path = None
     operator_photo_original = None
     operator_photo_size = None
     operator_photo_mime = None
     if operatorPhoto:
-        operator_photo_path = await save_upload_file(operatorPhoto)
         operator_photo_original = operatorPhoto.filename
         operator_photo_size = operatorPhoto.size
         operator_photo_mime = operatorPhoto.content_type
-        logger.info("File uploaded: operatorPhoto -> %s", operator_photo_original)
     
+    user_document_file = userDocument
     user_document_path = None
     user_document_original = None
     user_document_size = None
     user_document_mime = None
     if userDocument:
-        user_document_path = await save_upload_file(userDocument)
         user_document_original = userDocument.filename
         user_document_size = userDocument.size
         user_document_mime = userDocument.content_type
-        logger.info("File uploaded: userDocument -> %s", user_document_original)
 
     logger.info("Validation successful")
     payload = EntityRegisterRequest(
@@ -179,30 +175,60 @@ async def register_entity(
     user_id = result.get("user_id")
     
     if entity_id and user_id:
-        from app.utils.upload import save_document_record
-        from app.models.document import Document
-        
-        if gst_doc_path:
+        if gst_doc_file:
+            gst_doc_path, gst_doc_original, gst_doc_size, gst_doc_mime = await save_entity_document(
+                gst_doc_file,
+                entity_id=entity_id,
+                document_label="gst_doc",
+            )
+            payload_dict["gstDocUrl"] = gst_doc_path
+            await session.execute(
+                Entity.__table__.update().where(Entity.entity_id == entity_id).values(gst_doc_url=gst_doc_path)
+            )
             await save_document_record(
                 session, entity_id, user_id, "gst_document",
                 gst_doc_path, gst_doc_original, gst_doc_size, gst_doc_mime
             )
-        if address_proof_path:
+        if address_proof_file:
+            address_proof_path, address_proof_original, address_proof_size, address_proof_mime = await save_entity_document(
+                address_proof_file,
+                entity_id=entity_id,
+                document_label="address_proof",
+            )
             await save_document_record(
                 session, entity_id, user_id, "address_proof",
                 address_proof_path, address_proof_original, address_proof_size, address_proof_mime
             )
-        if entity_logo_path:
+        if entity_logo_file:
+            entity_logo_path, entity_logo_original, entity_logo_size, entity_logo_mime = await save_entity_document(
+                entity_logo_file,
+                entity_id=entity_id,
+                document_label="entity_logo",
+            )
             await save_document_record(
                 session, entity_id, user_id, "entity_logo",
                 entity_logo_path, entity_logo_original, entity_logo_size, entity_logo_mime
             )
-        if operator_photo_path:
+        if operator_photo_file:
+            operator_photo_path, operator_photo_original, operator_photo_size, operator_photo_mime = await save_entity_document(
+                operator_photo_file,
+                entity_id=entity_id,
+                document_label="operator_photo",
+            )
+            payload_dict["operatorPhotoUrl"] = operator_photo_path
+            await session.execute(
+                User.__table__.update().where(User.user_id == user_id).values(photo_url=operator_photo_path)
+            )
             await save_document_record(
                 session, entity_id, user_id, "operator_photo",
                 operator_photo_path, operator_photo_original, operator_photo_size, operator_photo_mime
             )
-        if user_document_path:
+        if user_document_file:
+            user_document_path, user_document_original, user_document_size, user_document_mime = await save_entity_document(
+                user_document_file,
+                entity_id=entity_id,
+                document_label="user_document",
+            )
             await save_document_record(
                 session, entity_id, user_id, "user_document",
                 user_document_path, user_document_original, user_document_size, user_document_mime
@@ -271,10 +297,11 @@ async def update_entity_profile(
     gst_doc_size = None
     gst_doc_mime = None
     if gstDoc:
-        gst_doc_path = await save_upload_file(gstDoc)
-        gst_doc_original = gstDoc.filename
-        gst_doc_size = gstDoc.size
-        gst_doc_mime = gstDoc.content_type
+        gst_doc_path, gst_doc_original, gst_doc_size, gst_doc_mime = await save_entity_document(
+            gstDoc,
+            entity_id=str(entity.entity_id),
+            document_label="gst_doc",
+        )
         payload["gstDocUrl"] = gst_doc_path
 
     address_proof_path = None
@@ -282,17 +309,18 @@ async def update_entity_profile(
     address_proof_size = None
     address_proof_mime = None
     if addressProof:
-        address_proof_path = await save_upload_file(addressProof)
-        address_proof_original = addressProof.filename
-        address_proof_size = addressProof.size
-        address_proof_mime = addressProof.content_type
+        address_proof_path, address_proof_original, address_proof_size, address_proof_mime = await save_entity_document(
+            addressProof,
+            entity_id=str(entity.entity_id),
+            document_label="address_proof",
+        )
 
     updated_entity = await entity_service.update_entity(session, entity_id, payload)
 
     if gst_doc_path:
         await upsert_document_record(
             session,
-            updated_entity.entity_id,
+            str(updated_entity.entity_id),
             UUID(user_id) if isinstance(user_id, str) else user_id,
             "gst_document",
             gst_doc_path,
@@ -303,7 +331,7 @@ async def update_entity_profile(
     if address_proof_path:
         await upsert_document_record(
             session,
-            updated_entity.entity_id,
+            str(updated_entity.entity_id),
             UUID(user_id) if isinstance(user_id, str) else user_id,
             "address_proof",
             address_proof_path,
@@ -313,6 +341,14 @@ async def update_entity_profile(
         )
 
     await session.commit()
+    await admin_service.write_audit_log(
+        session=session,
+        user_id=str(user_id),
+        action="ENTITY_UPDATE",
+        target_type="ENTITY",
+        target_id=str(updated_entity.entity_id),
+        ip_address=None,
+    )
 
     return success_response({"entity_id": str(updated_entity.entity_id), "updated": True})
 
@@ -328,6 +364,14 @@ async def create_branch(
     
     # Create the branch entity
     branch = await entity_service.create_entity(session, payload_dict, created_by=actor.get("user_id"))
+    await admin_service.write_audit_log(
+        session=session,
+        user_id=str(actor.get("user_id")),
+        action="ENTITY_CREATE",
+        target_type="ENTITY",
+        target_id=str(branch.entity_id),
+        ip_address=None,
+    )
     return success_response({"entity_id": str(branch.entity_id)})
 
 

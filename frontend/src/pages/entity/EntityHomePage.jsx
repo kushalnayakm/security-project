@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 export function EntityHomePage() {
   return (
     <div style={styles.container}>
-      <span style={styles.logo}>DID</span>
+      <img src="/did-logo.png" alt="DID" style={styles.logo} />
 
       <div style={styles.actions}>
         <Link to="/auth/entity/register" style={styles.btnPrimary}>
@@ -40,13 +40,10 @@ const styles = {
     background: "white",
   },
   logo: {
-    fontFamily: "'Quicksand', 'Comfortaa', 'Nunito', sans-serif",
-    fontWeight: 300,
-    fontSize: "4rem",
-    letterSpacing: "0.05em",
-    color: "#7EF7E8",
-    transform: "scaleX(-1)",
-    display: "inline-block",
+    width: "clamp(120px, 24vw, 160px)",
+    height: "auto",
+    objectFit: "contain",
+    display: "block",
     userSelect: "none",
   },
   actions: {

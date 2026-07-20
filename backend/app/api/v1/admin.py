@@ -23,19 +23,21 @@ async def list_entities(status: str | None = None, session: AsyncSession = Depen
 @router.post("/entities", status_code=status.HTTP_201_CREATED)
 async def create_entity(payload: EntityCreate, session: AsyncSession = Depends(get_db)) -> dict:
     entity = await entity_service.create_entity(session, payload.model_dump())
+    await admin_service.write_audit_log(session, None, "ENTITY_CREATE", "ENTITY", str(entity.entity_id), None)
     return success_response({"entity_id": entity.entity_id})
 
 
 @router.patch("/entities/{entity_id}")
 async def update_entity(entity_id: str, payload: EntityUpdate, session: AsyncSession = Depends(get_db)) -> dict:
     entity = await entity_service.update_entity(session, entity_id, payload.model_dump(exclude_none=True))
+    await admin_service.write_audit_log(session, None, "ENTITY_UPDATE", "ENTITY", str(entity.entity_id), None)
     return success_response({"entity_id": entity.entity_id, "updated": True})
 
 
 @router.delete("/entities/{entity_id}")
 async def delete_entity(entity_id: str, request: Request, session: AsyncSession = Depends(get_db), admin: dict = Depends(require_admin)) -> dict:
     await entity_service.delete_entity(session, entity_id)
-    await admin_service.write_audit_log(session, admin.get("sub"), "DELETE_ENTITY", "entity", entity_id, request.client.host if request.client else None)
+    await admin_service.write_audit_log(session, admin.get("sub"), "DELETE_ENTITY", "ENTITY", entity_id, request.client.host if request.client else None)
     return success_response({"success": True})
 
 
@@ -51,7 +53,7 @@ async def update_customer(customer_id: str, payload: CustomerUpdate) -> dict:
 
 @router.delete("/customers/{customer_id}")
 async def delete_customer(customer_id: str, request: Request, session: AsyncSession = Depends(get_db), admin: dict = Depends(require_admin)) -> dict:
-    await admin_service.write_audit_log(session, admin.get("sub"), "DELETE_CUSTOMER", "customer", customer_id, request.client.host if request.client else None)
+    await admin_service.write_audit_log(session, admin.get("sub"), "DELETE_CUSTOMER", "CUSTOMER", customer_id, request.client.host if request.client else None)
     return success_response({"success": True})
 
 

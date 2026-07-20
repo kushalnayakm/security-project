@@ -1,7 +1,14 @@
+import logging
+from datetime import datetime, timezone
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit_log import AuditLog
+
+
+logger = logging.getLogger(__name__)
 
 
 class AdminService:
@@ -35,13 +42,35 @@ class AdminService:
         target_id: str | None,
         ip_address: str | None,
     ) -> None:
-        session.add(
-            AuditLog(
-                user_id=user_id,
-                action=action,
-                target_type=target_type,
-                target_id=target_id,
-                ip_address=ip_address,
-            )
+        audit = AuditLog(
+            user_id=UUID(user_id) if user_id else None,
+            action=action,
+            target_type=target_type,
+            target_id=UUID(target_id) if target_id else None,
+            ip_address=ip_address,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
-        await session.commit()
+        try:
+            session.add(audit)
+            await session.flush()
+            await session.commit()
+            logger.info(
+                "Audit created: action=%s user_id=%s target_type=%s target_id=%s ip=%s timestamp=%s result=success",
+                action,
+                user_id,
+                target_type,
+                target_id,
+                ip_address,
+                audit.created_at.isoformat() if audit.created_at else None,
+            )
+        except Exception:
+            await session.rollback()
+            logger.exception(
+                "Audit creation failed: action=%s user_id=%s target_type=%s target_id=%s ip=%s",
+                action,
+                user_id,
+                target_type,
+                target_id,
+                ip_address,
+            )
+            raise
