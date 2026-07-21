@@ -123,7 +123,10 @@ export function DocumentPreviewPage() {
           setSuccess("Registration successful! Redirecting...");
           setTimeout(() => {
             clearDraft();
-            window.location.href = "/entity/dashboard";
+            // Use React Router navigate instead of window.location.href to avoid
+            // a full page reload. This preserves the in-memory auth state and
+            // keeps browser history intact for proper Back/Forward navigation.
+            navigate("/entity/dashboard");
           }, 1500);
         } else {
           clearDraft();

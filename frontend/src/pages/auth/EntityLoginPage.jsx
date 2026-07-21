@@ -108,7 +108,11 @@ export function EntityLoginPage() {
     try {
       await loginWithOtp(gstNo, phone, otp);
       const redirectTo = location.state?.from?.pathname || "/entity/dashboard";
-      navigate(redirectTo, { replace: true });
+      // Use push (default) instead of replace so the login page stays in browser
+      // history. This preserves normal Back/Forward navigation — pressing Back
+      // from the dashboard returns to the login page, which will see the stored
+      // token and redirect forward again without forcing a logout.
+      navigate(redirectTo);
     } catch (err) {
       setError(err.message || "Invalid OTP");
     } finally {

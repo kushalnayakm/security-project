@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
 import { entityService } from "../../services/entityService";
@@ -80,8 +80,11 @@ export function EntityRegisterPage() {
             url: err.url,
             method: err.method,
           });
+          // Profile fetch is best-effort during registration; a 401/404 here
+          // should NOT log the user out — the stored token may still be valid
+          // for other endpoints. Forcing logout breaks browser Back navigation.
           if (err.status === 401 || err.status === 404) {
-            logout();
+            // Silently ignore — profile pre-fill is optional.
           }
         }
       } finally {
@@ -280,9 +283,6 @@ export function EntityRegisterPage() {
       <div style={styles.page}>
         <div style={styles.header}>
           <img src="/did-logo.png" alt="DID" style={styles.logo} />
-          <Link to="/auth/entity/login" style={styles.backLink}>
-            Back to Login
-          </Link>
         </div>
 
         <div style={styles.form}>
@@ -294,7 +294,6 @@ export function EntityRegisterPage() {
                 value={formData.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 style={styles.gridInput}
-                placeholder="Enter entity name"
                 required
               />
             </div>
@@ -305,7 +304,6 @@ export function EntityRegisterPage() {
                 value={formData.branchName}
                 onChange={(e) => handleChange("branchName", e.target.value)}
                 style={styles.gridInput}
-                placeholder="Enter branch name"
                 required
               />
             </div>
@@ -316,7 +314,6 @@ export function EntityRegisterPage() {
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
                 style={styles.gridInput}
-                placeholder="Enter phone number"
                 required
               />
             </div>
@@ -328,7 +325,6 @@ export function EntityRegisterPage() {
                 value={formData.gstNo}
                 onChange={(e) => handleChange("gstNo", e.target.value.toUpperCase())}
                 style={styles.gridInput}
-                placeholder="Enter GST number"
                 required
               />
             </div>
@@ -339,7 +335,6 @@ export function EntityRegisterPage() {
                 value={formData.address}
                 onChange={(e) => handleChange("address", e.target.value)}
                 style={styles.gridInput}
-                placeholder="Enter full address"
                 required
               />
             </div>
@@ -558,12 +553,6 @@ const styles = {
     display: "block",
     margin: 0,
   },
-  backLink: {
-    fontSize: "0.875rem",
-    color: "#0F6E56",
-    textDecoration: "none",
-    fontWeight: 500,
-  },
   form: {
     display: "flex",
     flexDirection: "column",
@@ -587,9 +576,9 @@ const styles = {
     boxSizing: "border-box",
   },
   gridLabel: {
-    fontSize: "0.78rem",
+    fontSize: "1.5rem",
     fontWeight: 700,
-    color: "#333",
+    color: "#3333335d",
     textAlign: "center",
     letterSpacing: "0.08em",
   },
