@@ -66,6 +66,7 @@ export function EntityDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
+  const [logoutHover, setLogoutHover] = useState(false);
 
   useEffect(() => {
     function handleResize() {
@@ -140,6 +141,11 @@ export function EntityDashboardPage() {
   const isTablet = viewportWidth <= 1100;
   const isMobile = viewportWidth <= 820;
 
+  const handleLogout = () => {
+    logout();
+    navigate("/entity/login");
+  };
+
   if (loading) {
     return (
       <div style={styles.loadingContainer}>
@@ -180,65 +186,58 @@ export function EntityDashboardPage() {
               padding: isMobile ? "18px 14px" : isTablet ? "20px 16px 16px" : styles.sidebar.padding,
             }}
           >
-            <div style={styles.entityHeader}>
-              <div style={styles.buildingIconWrap}>
-                <BuildingIcon />
-              </div>
-              <div>
+            {/* Section 1: Entity Name, Branch Name, Entity Logo */}
+            <div style={styles.sidebarSection}>
+              <div style={styles.entityTitleBlock}>
                 <h1 style={styles.entityTitle}>{entityName}</h1>
                 <p style={styles.entitySubtitle}>{branchName}</p>
               </div>
+
+              <div style={styles.brandImageWrap}>
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Entity logo" style={styles.brandImage} />
+                ) : (
+                  <div style={styles.brandFallback}>
+                    <BuildingIcon />
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={styles.separator} />
 
-            <div style={styles.infoBlock}>
-              <span style={styles.infoLabel}>Operator Photo</span>
-            </div>
-
-            <div style={styles.operatorImageWrap}>
-              <img src={operatorPhotoUrl} alt="Operator" style={styles.operatorImage} />
-            </div>
-
-            <div style={styles.separator} />
-
-            <div style={styles.infoBlock}>
-              <span style={styles.infoLabel}>Entity QR Code</span>
-            </div>
-
-            <div style={styles.qrFrame}>
-              {qrImageUrl ? (
-                <img src={qrImageUrl} alt="Entity QR Code" style={styles.qrImage} />
-              ) : (
-                <div style={styles.qrEmpty}>QR Not Assigned</div>
-              )}
+            {/* Section 2: Operator Photo */}
+            <div style={styles.sidebarSection}>
+              <div style={styles.operatorImageWrap}>
+                <img src={operatorPhotoUrl} alt="Operator" style={styles.operatorImage} />
+              </div>
             </div>
 
             <div style={styles.separator} />
 
-            <div style={styles.infoBlock}>
-              <span style={styles.infoLabel}>GST Document</span>
-              {gstDocumentUrl ? (
-                <a href={gstDocumentUrl} target="_blank" rel="noreferrer" style={styles.assetLink}>
-                  View GST document
-                </a>
-              ) : (
-                <span style={styles.infoValue}>Not Available</span>
-              )}
+            {/* Section 3: DID QR Code */}
+            <div style={styles.sidebarSection}>
+              <div style={styles.qrFrame}>
+                {qrImageUrl ? (
+                  <img src={qrImageUrl} alt="Entity QR Code" style={styles.qrImage} />
+                ) : (
+                  <div style={styles.qrEmpty}>QR Not Assigned</div>
+                )}
+              </div>
             </div>
 
-            <div style={styles.infoBlock}>
-              <span style={styles.infoLabel}>Address Proof</span>
-              {addressProofUrl ? (
-                <a href={addressProofUrl} target="_blank" rel="noreferrer" style={styles.assetLink}>
-                  View address proof
-                </a>
-              ) : (
-                <span style={styles.infoValue}>Not Available</span>
-              )}
-            </div>
+            <div style={styles.separator} />
 
-            <button onClick={logout} style={styles.logoutBtn}>
+            {/* Logout Button */}
+            <button
+              style={{
+                ...styles.logoutBtn,
+                ...(logoutHover ? styles.logoutBtnHover : {}),
+              }}
+              onMouseEnter={() => setLogoutHover(true)}
+              onMouseLeave={() => setLogoutHover(false)}
+              onClick={handleLogout}
+            >
               Logout
             </button>
           </aside>
@@ -381,44 +380,42 @@ const styles = {
     minWidth: 0,
     boxSizing: "border-box",
     background: "#fff",
-    borderRadius: "16px",
-    border: "1px solid #b7edf1",
-    padding: "24px 18px 18px",
-    boxShadow: "0 4px 20px rgba(14, 165, 177, 0.08)",
+    borderRadius: 0,
+    border: "1px solid #2FBF9B",
+    padding: "20px 16px",
   },
-  entityHeader: {
-    display: "grid",
-    gridTemplateColumns: "44px 1fr",
-    gap: "14px",
-    alignItems: "center",
-    marginBottom: "20px",
-  },
-  buildingIconWrap: {
+  sidebarSection: {
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
-    color: "#10a7b4",
+    width: "100%",
+  },
+  entityTitleBlock: {
+    width: "100%",
+    textAlign: "left",
+    marginBottom: "16px",
   },
   entityTitle: {
     margin: 0,
-    color: "#10a7b4",
+    color: "#0F6E56",
     fontSize: "18px",
     fontWeight: 700,
-    lineHeight: 1.1,
+    lineHeight: 1.2,
   },
   entitySubtitle: {
     margin: "4px 0 0",
-    color: "#1f2941",
+    color: "#475569",
     fontSize: "14px",
+    fontWeight: 500,
   },
   brandImageWrap: {
-    width: "176px",
-    height: "176px",
-    margin: "0 auto 18px",
-    border: "1px solid #dbe6ea",
-    borderRadius: "50%",
+    width: "190px",
+    height: "190px",
+    margin: "0 auto",
+    border: "1px solid #22D3EE",
+    borderRadius: 0,
     overflow: "hidden",
-    background: "#edf9fb",
+    background: "#EAFBF7",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -431,48 +428,23 @@ const styles = {
   brandFallback: {
     width: "100%",
     height: "100%",
-    background: "#edf9fb",
-    color: "#10a7b4",
+    background: "#EAFBF7",
+    color: "#0F6E56",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
-  infoBlock: {
-    maxWidth: "220px",
-    margin: "0 auto 16px",
+  separator: {
+    borderTop: "1px solid #2FBF9B",
+    margin: "18px 0",
     width: "100%",
   },
-  infoLabel: {
-    display: "block",
-    color: "#25314c",
-    fontSize: "13px",
-    marginBottom: "6px",
-  },
-  infoValue: {
-    display: "block",
-    color: "#121d35",
-    fontSize: "15px",
-    fontWeight: 500,
-    wordBreak: "break-word",
-  },
-  assetLink: {
-    display: "inline-block",
-    color: "#10a7b4",
-    fontSize: "14px",
-    fontWeight: 600,
-    textDecoration: "none",
-  },
-  separator: {
-    borderTop: "1px solid #99e4e8",
-    margin: "18px auto 24px",
-    maxWidth: "210px",
-  },
   operatorImageWrap: {
-    width: "154px",
-    height: "154px",
-    margin: "0 auto 8px",
-    border: "2px solid #10b5c1",
-    borderRadius: "50%",
+    width: "180px",
+    height: "180px",
+    margin: "0 auto",
+    border: "1px solid #22D3EE",
+    borderRadius: 0,
     overflow: "hidden",
     background: "#fff",
   },
@@ -482,11 +454,11 @@ const styles = {
     objectFit: "cover",
   },
   qrFrame: {
-    width: "220px",
-    height: "220px",
+    width: "190px",
+    height: "190px",
     margin: "0 auto",
-    border: "1px solid #88dfe7",
-    borderRadius: "8px",
+    border: "1px solid #22D3EE",
+    borderRadius: 0,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -499,22 +471,26 @@ const styles = {
     padding: "8px",
   },
   qrEmpty: {
-    color: "#18243e",
+    color: "#0F6E56",
     fontSize: "14px",
     textAlign: "center",
     padding: "1rem",
   },
   logoutBtn: {
-    margin: "18px auto 0",
-    width: "220px",
-    padding: "10px 14px",
-    border: "1px solid #10a7b4",
-    borderRadius: "10px",
+    width: "100%",
+    padding: "12px 16px",
+    border: "1px solid #2FBF9B",
+    borderRadius: 0,
     background: "#fff",
-    color: "#10a7b4",
+    color: "#0F6E56",
     cursor: "pointer",
     fontSize: "15px",
     fontWeight: 600,
+    transition: "background 180ms ease, color 180ms ease",
+  },
+  logoutBtnHover: {
+    background: "#2FBF9B",
+    color: "#fff",
   },
   workspace: {
     width: "100%",
