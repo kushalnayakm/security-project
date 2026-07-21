@@ -7,10 +7,10 @@ export function EntityHomePage() {
       <img src="/did-logo.png" alt="DID" style={styles.logo} />
 
       <div style={styles.actions}>
-        <Link to="/auth/entity/register" style={styles.btnPrimary}>
+        <Link to="/auth/entity/register" className="did-btn" style={styles.btnPrimary}>
           Sign up
         </Link>
-        <Link to="/auth/entity/login" style={styles.btnSecondary}>
+        <Link to="/auth/entity/login" className="did-btn" style={styles.btnSecondary}>
           Sign in
         </Link>
       </div>

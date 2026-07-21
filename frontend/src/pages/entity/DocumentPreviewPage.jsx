@@ -383,7 +383,7 @@ const styles = {
   },
   navBtnDisabled: {
     opacity: 0.4,
-    cursor: "not-allowed",
+    cursor: "not-allowed",  
   },
   navFilename: {
     fontSize: "0.85rem",

@@ -14,16 +14,16 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
 export function EntityRegisterPage() {
   const navigate = useNavigate();
-  const { entity: authEntity, isAuthenticated, logout } = useAuth();
-  const { setDocuments, setFormData: setDraftFormData, registerObjectUrl } = useRegistrationDraft();
+  const { entity: authEntity, isAuthenticated } = useAuth();
+  const { clearDraft, setDocuments, setFormData: setDraftFormData, registerObjectUrl } = useRegistrationDraft();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  const [otpStep, setOtpStep] = useState(isAuthenticated ? 2 : 1);
+  const [otpStep, setOtpStep] = useState(1);
   const [otp, setOtp] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(Boolean(isAuthenticated));
+  const [otpVerified, setOtpVerified] = useState(false);
   const [mapModalOpen, setMapModalOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
 
@@ -31,6 +31,7 @@ export function EntityRegisterPage() {
     name: "",
     branchName: "",
     phone: "",
+    email: "",
     gstNo: "",
     gstDoc: null,
     address: "",
@@ -41,64 +42,10 @@ export function EntityRegisterPage() {
     locationLng: "",
   });
 
+  // Always reset registration draft on mounting the registration page
   useEffect(() => {
-    setOtpVerified(Boolean(isAuthenticated));
-    setOtpStep(isAuthenticated ? 2 : 1);
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadProfile() {
-      if (!isAuthenticated) {
-        return;
-      }
-
-      setProfileLoading(true);
-      try {
-        const profile = await entityService.getProfile();
-        if (!active) {
-          return;
-        }
-
-        setFormData((prev) => ({
-          ...prev,
-          name: profile?.name || authEntity?.name || prev.name,
-          branchName: profile?.branch_name || authEntity?.branch_name || prev.branchName,
-          phone: profile?.phone || authEntity?.phone || prev.phone,
-          gstNo: profile?.gst_no || authEntity?.gst_no || authEntity?.gstNo || prev.gstNo,
-          address: profile?.address || prev.address,
-          location: profile?.location || prev.location,
-          locationLat: profile?.location_lat || prev.locationLat,
-          locationLng: profile?.location_lng || prev.locationLng,
-        }));
-      } catch (err) {
-        if (active) {
-          console.warn("Optional entity profile request failed", {
-            message: err.message,
-            status: err.status,
-            url: err.url,
-            method: err.method,
-          });
-          // Profile fetch is best-effort during registration; a 401/404 here
-          // should NOT log the user out — the stored token may still be valid
-          // for other endpoints. Forcing logout breaks browser Back navigation.
-          if (err.status === 401 || err.status === 404) {
-            // Silently ignore — profile pre-fill is optional.
-          }
-        }
-      } finally {
-        if (active) {
-          setProfileLoading(false);
-        }
-      }
-    }
-
-    loadProfile();
-    return () => {
-      active = false;
-    };
-  }, [authEntity, isAuthenticated]);
+    clearDraft();
+  }, [clearDraft]);
 
   const hasLockedGst = Boolean(authEntity?.gst_no || authEntity?.gstNo || formData.gstNo);
 
@@ -268,6 +215,7 @@ export function EntityRegisterPage() {
       name: formData.name,
       branchName: formData.branchName,
       phone: formData.phone,
+      email: formData.email,
       gstNo: formData.gstNo,
       address: formData.address,
       location: formData.location,
@@ -286,74 +234,85 @@ export function EntityRegisterPage() {
         </div>
 
         <div style={styles.form}>
-          <div style={styles.grid}>
-            <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>ENTITY NAME *</label>
+          <div className="did-grid">
+            {/* Row 1: Entity Name | Branch Name | Phone Number | GST Number */}
+            <div className={`did-cell${formData.name ? " has-value" : ""}`}>
+              <span className="did-float-label">ENTITY NAME *</span>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 style={styles.gridInput}
+                placeholder=" "
                 required
               />
             </div>
-            <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>BRANCH NAME *</label>
+            <div className={`did-cell${formData.branchName ? " has-value" : ""}`}>
+              <span className="did-float-label">BRANCH NAME *</span>
               <input
                 type="text"
                 value={formData.branchName}
                 onChange={(e) => handleChange("branchName", e.target.value)}
                 style={styles.gridInput}
+                placeholder=" "
                 required
               />
             </div>
-            <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>PHONE NUMBER *</label>
+            <div className={`did-cell${formData.phone ? " has-value" : ""}`}>
+              <span className="did-float-label">PHONE NUMBER *</span>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
                 style={styles.gridInput}
+                placeholder=" "
                 required
               />
             </div>
-
-            <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>GST NUMBER *</label>
+            <div className={`did-cell${formData.gstNo ? " has-value" : ""}`}>
+              <span className="did-float-label">GST NUMBER *</span>
               <input
                 type="text"
                 value={formData.gstNo}
                 onChange={(e) => handleChange("gstNo", e.target.value.toUpperCase())}
                 style={styles.gridInput}
+                placeholder=" "
                 required
               />
             </div>
-            <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>ADDRESS *</label>
+
+            {/* Row 2: Address | Email | GST Certificate | Address Proof */}
+            <div className={`did-cell${formData.address ? " has-value" : ""}`}>
+              <span className="did-float-label">ADDRESS *</span>
               <input
                 type="text"
                 value={formData.address}
                 onChange={(e) => handleChange("address", e.target.value)}
                 style={styles.gridInput}
+                placeholder=" "
                 required
               />
             </div>
-            <div style={styles.gridCell}>
-              <label style={styles.gridLabel}>LOCATION (Optional)</label>
-              <div style={styles.locationField}>
-                {formData.location || "Not Provided"}
-              </div>
+            <div className={`did-cell${formData.email ? " has-value" : ""}`}>
+              <span className="did-float-label">EMAIL</span>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleChange("email", e.target.value)}
+                style={styles.gridInput}
+                placeholder=" "
+              />
             </div>
 
-            {/* GST Certificate - mandatory */}
+            {/* GST Certificate Upload Card */}
             <label
-              style={{ ...styles.attachCell, background: formData.gstDoc ? "#E8FDFB" : MINT_FILL }}
+              className={`did-upload${formData.gstDoc ? " is-selected" : ""}`}
               onContextMenu={(e) => formData.gstDoc && handleFileContextMenu("gstDoc", e)}
               onDoubleClick={() => formData.gstDoc && handleFileDoubleClick("gstDoc")}
             >
-              <span style={{ ...styles.attachLabel, transform: formData.gstDoc ? "none" : "rotate(-25deg)" }}>
-                {formData.gstDoc ? `✓ ${formData.gstDoc.name}` : "ATTACH GST CERTIFICATE *"}
-              </span>
+              <div className="did-upload-text">
+                {formData.gstDoc ? formData.gstDoc.name : "GST CERTIFICATE *"}
+              </div>
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png,.webp"
@@ -362,15 +321,15 @@ export function EntityRegisterPage() {
               />
             </label>
 
-            {/* Address Proof - mandatory */}
+            {/* Address Proof Upload Card */}
             <label
-              style={{ ...styles.attachCell, background: formData.addressProof ? "#E8FDFB" : MINT_FILL }}
+              className={`did-upload${formData.addressProof ? " is-selected" : ""}`}
               onContextMenu={(e) => formData.addressProof && handleFileContextMenu("addressProof", e)}
               onDoubleClick={() => formData.addressProof && handleFileDoubleClick("addressProof")}
             >
-              <span style={{ ...styles.attachLabel, transform: formData.addressProof ? "none" : "rotate(-25deg)" }}>
-                {formData.addressProof ? `✓ ${formData.addressProof.name}` : "ATTACH ADDRESS PROOF *"}
-              </span>
+              <div className="did-upload-text">
+                {formData.addressProof ? formData.addressProof.name : "ADDRESS PROOF *"}
+              </div>
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png,.webp"
@@ -379,15 +338,16 @@ export function EntityRegisterPage() {
               />
             </label>
 
-            {/* Operator Photo - optional */}
+            {/* Row 3: Operator Photo | Google Map | Empty | Empty */}
+            {/* Operator Photo Upload Card */}
             <label
-              style={{ ...styles.attachCell, background: formData.operatorPhoto ? "#E8FDFB" : MINT_FILL }}
+              className={`did-upload${formData.operatorPhoto ? " is-selected" : ""}`}
               onContextMenu={(e) => formData.operatorPhoto && handleFileContextMenu("operatorPhoto", e)}
               onDoubleClick={() => formData.operatorPhoto && handleFileDoubleClick("operatorPhoto")}
             >
-              <span style={{ ...styles.attachLabel, transform: formData.operatorPhoto ? "none" : "rotate(-25deg)" }}>
-                {formData.operatorPhoto ? `✓ ${formData.operatorPhoto.name}` : "ATTACH OPERATOR PHOTO (Optional)"}
-              </span>
+              <div className="did-upload-text">
+                {formData.operatorPhoto ? formData.operatorPhoto.name : "OPERATOR PHOTO (Optional)"}
+              </div>
               <input
                 type="file"
                 accept=".jpg,.jpeg,.png,.webp"
@@ -396,26 +356,28 @@ export function EntityRegisterPage() {
               />
             </label>
 
-            {/* Google Maps - optional */}
+            {/* Google Maps Card */}
             <div
               onClick={handleLocatePick}
+              className={`did-upload${formData.location ? " is-selected" : ""}`}
               style={{
-                ...styles.attachCell,
-                ...styles.mapCell,
-                background: formData.location ? "#E8FDFB" : MINT_FILL,
                 cursor: GOOGLE_MAPS_API_KEY ? "pointer" : "default",
                 opacity: GOOGLE_MAPS_API_KEY ? 1 : 0.6,
               }}
               title={GOOGLE_MAPS_API_KEY ? "Click to select location on map" : "Google Maps API key not configured"}
             >
-              <span style={{ ...styles.attachLabel, transform: formData.location ? "none" : "rotate(-25deg)" }}>
+              <div className="did-upload-text">
                 {formData.location
-                  ? "✓ Location Selected"
+                  ? formData.location
                   : GOOGLE_MAPS_API_KEY
                     ? "LOCATE IN GOOGLE MAPS (Optional)"
                     : "GOOGLE MAPS UNAVAILABLE"}
-              </span>
+              </div>
             </div>
+
+            {/* Desktop spacer cells to keep Row 3 clean: [Operator Photo] [Google Map] [Empty] [Empty] */}
+            <div className="did-grid-empty-cell" />
+            <div className="did-grid-empty-cell" />
           </div>
 
           <div style={styles.otpSection}>
@@ -423,7 +385,7 @@ export function EntityRegisterPage() {
               <div style={styles.otpRow}>
                 <p style={styles.otpText}>{phoneVerificationLabel}</p>
                 {otpStep === 1 && (
-                  <button type="button" onClick={handleSendOtp} disabled={otpLoading} style={styles.otpBtn}>
+                  <button type="button" onClick={handleSendOtp} disabled={otpLoading} className="did-btn" style={styles.otpBtn}>
                     {otpLoading ? "Sending..." : "Send OTP"}
                   </button>
                 )}
@@ -438,10 +400,10 @@ export function EntityRegisterPage() {
                       style={styles.otpInput}
                       autoFocus
                     />
-                    <button type="button" onClick={handleVerifyOtp} disabled={otpLoading} style={styles.otpBtn}>
+                    <button type="button" onClick={handleVerifyOtp} disabled={otpLoading} className="did-btn" style={styles.otpBtn}>
                       {otpLoading ? "..." : "Verify"}
                     </button>
-                    <button type="button" onClick={handleResendOtp} style={styles.otpResendBtn}>
+                    <button type="button" onClick={handleResendOtp} className="did-btn" style={styles.otpResendBtn}>
                       Resend
                     </button>
                   </div>
@@ -459,6 +421,7 @@ export function EntityRegisterPage() {
               <div><strong>Branch:</strong> {formData.branchName || "—"}</div>
               <div><strong>GST:</strong> {formData.gstNo || "—"}</div>
               <div><strong>Phone:</strong> {formData.phone || "—"}</div>
+              <div><strong>Email:</strong> {formData.email || "—"}</div>
               <div><strong>Address:</strong> {formData.address || "—"}</div>
               <div><strong>Location:</strong> {formData.location || "Not Provided"}</div>
               <div><strong>Status:</strong> <span style={styles.pendingTag}>{summaryStatus}</span></div>
@@ -473,6 +436,7 @@ export function EntityRegisterPage() {
               type="button"
               onClick={handleContinue}
               disabled={!isStepValid || submitting}
+              className="did-btn"
               style={{ ...styles.submitBtn, ...((!isStepValid || submitting) ? styles.submitBtnDisabled : {}) }}
             >
               {submitting ? "Saving..." : "Continue"}
@@ -540,7 +504,7 @@ const styles = {
   },
   header: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     marginBottom: "1.5rem",
     paddingBottom: "1rem",

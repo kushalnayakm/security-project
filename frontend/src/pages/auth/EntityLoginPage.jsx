@@ -189,15 +189,15 @@ export function EntityLoginPage() {
           ) : null}
 
           {step === 1 ? (
-            <button type="submit" disabled={loading} style={styles.primaryButton}>
+            <button type="submit" disabled={loading} className="did-btn" style={styles.primaryButton}>
               {loading ? "Requesting..." : "Request OTP"}
             </button>
           ) : (
             <>
-              <button type="submit" disabled={loading || otp.length !== 6} style={styles.primaryButton}>
+              <button type="submit" disabled={loading || otp.length !== 6} className="did-btn" style={styles.primaryButton}>
                 {loading ? "Verifying..." : "Verify OTP"}
               </button>
-              <button type="button" onClick={resetOtpStep} style={styles.secondaryButton}>
+              <button type="button" onClick={resetOtpStep} className="did-btn" style={styles.secondaryButton}>
                 Resend OTP
               </button>
             </>

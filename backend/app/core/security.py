@@ -1,7 +1,6 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -9,7 +8,6 @@ from app.core.config import Settings, get_settings
 
 
 import bcrypt
-
 bearer_scheme = HTTPBearer(auto_error=False)
 
 

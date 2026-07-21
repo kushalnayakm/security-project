@@ -190,41 +190,6 @@ export function EntityDashboardPage() {
               </div>
             </div>
 
-            <div style={styles.brandImageWrap}>
-              {logoUrl ? (
-                <img src={logoUrl} alt="Entity logo" style={styles.brandImage} />
-              ) : (
-                <div style={styles.brandFallback}>
-                  <BuildingIcon small />
-                </div>
-              )}
-            </div>
-
-            <div style={styles.infoBlock}>
-              <span style={styles.infoLabel}>GST Number</span>
-              <span style={styles.infoValue}>{gstNo || "Not Available"}</span>
-            </div>
-
-            <div style={styles.infoBlock}>
-              <span style={styles.infoLabel}>Phone</span>
-              <span style={styles.infoValue}>{phone || "Not Available"}</span>
-            </div>
-
-            <div style={styles.infoBlock}>
-              <span style={styles.infoLabel}>Branch Name</span>
-              <span style={styles.infoValue}>{branchName}</span>
-            </div>
-
-            <div style={styles.infoBlock}>
-              <span style={styles.infoLabel}>Address</span>
-              <span style={styles.infoValue}>{address || "Not Available"}</span>
-            </div>
-
-            <div style={styles.infoBlock}>
-              <span style={styles.infoLabel}>Location</span>
-              <span style={styles.infoValue}>{locationText || "Not Available"}</span>
-            </div>
-
             <div style={styles.separator} />
 
             <div style={styles.infoBlock}>
