@@ -268,6 +268,8 @@ async def update_entity_profile(
     locationLng: str | None = Form(None),
     gstDoc: UploadFile | None = File(None),
     addressProof: UploadFile | None = File(None),
+    entityLogo: UploadFile | None = File(None),
+    operatorPhoto: UploadFile | None = File(None),
     session: AsyncSession = Depends(get_db),
     actor: dict = Depends(require_entity_staff),
 ) -> dict:
@@ -338,6 +340,46 @@ async def update_entity_profile(
             address_proof_original,
             address_proof_size,
             address_proof_mime,
+        )
+
+    # Handle entity logo upload
+    if entityLogo:
+        entity_logo_path, entity_logo_original, entity_logo_size, entity_logo_mime = await save_entity_document(
+            entityLogo,
+            entity_id=str(updated_entity.entity_id),
+            document_label="entity_logo",
+        )
+        await upsert_document_record(
+            session,
+            str(updated_entity.entity_id),
+            UUID(user_id) if isinstance(user_id, str) else user_id,
+            "entity_logo",
+            entity_logo_path,
+            entity_logo_original,
+            entity_logo_size,
+            entity_logo_mime,
+        )
+
+    # Handle operator photo upload
+    if operatorPhoto:
+        operator_photo_path, operator_photo_original, operator_photo_size, operator_photo_mime = await save_entity_document(
+            operatorPhoto,
+            entity_id=str(updated_entity.entity_id),
+            document_label="operator_photo",
+        )
+        await upsert_document_record(
+            session,
+            str(updated_entity.entity_id),
+            UUID(user_id) if isinstance(user_id, str) else user_id,
+            "operator_photo",
+            operator_photo_path,
+            operator_photo_original,
+            operator_photo_size,
+            operator_photo_mime,
+        )
+        # Also update the user's photo_url
+        await session.execute(
+            User.__table__.update().where(User.user_id == UUID(user_id) if isinstance(user_id, str) else user_id).values(photo_url=operator_photo_path)
         )
 
     await session.commit()

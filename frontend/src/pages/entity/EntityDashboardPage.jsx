@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { entityService } from "../../services/entityService";
+import { useDynamicBranding } from "../../hooks/useDynamicBranding";
 
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1").replace(/\/api\/v1\/?$/, "");
 const DEFAULT_AVATAR =
@@ -67,6 +68,7 @@ export function EntityDashboardPage() {
   const [error, setError] = useState(null);
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
   const [logoutHover, setLogoutHover] = useState(false);
+  const [fadeIn, setFadeIn] = useState(false);
 
   useEffect(() => {
     function handleResize() {
@@ -119,11 +121,19 @@ export function EntityDashboardPage() {
     loadDashboardData();
   }, [authEntity]);
 
+  // Trigger fade-in after mount
+  useEffect(() => {
+    const timer = requestAnimationFrame(() => setFadeIn(true));
+    return () => cancelAnimationFrame(timer);
+  }, []);
+
   const mergedProfile = {
     ...authEntity,
     ...profile,
   };
   const logoUrl = resolveAssetUrl(mergedProfile.logo_url);
+  const displayLogoUrl = logoUrl || "/did-logo.png";
+  const { primary, secondary, accent, isExtracted } = useDynamicBranding(logoUrl);
   const operatorPhotoUrl = resolveAssetUrl(mergedProfile.operator_photo) || DEFAULT_AVATAR;
   const qrImageUrl = resolveAssetUrl(mergedProfile.qr_image_url);
   const entityName = mergedProfile.name || authEntity?.name || mergedProfile.parent_name || "Entity";
@@ -167,7 +177,14 @@ export function EntityDashboardPage() {
   }
 
   return (
-    <div style={styles.container}>
+    <div
+      style={{
+        ...styles.container,
+        borderTopColor: primary,
+        opacity: fadeIn ? 1 : 0,
+        transition: "opacity 300ms ease-in-out, border-color 450ms ease-in-out, color 450ms ease-in-out, background-color 450ms ease-in-out",
+      }}
+    >
       <main
         style={{
           ...styles.main,
@@ -183,56 +200,69 @@ export function EntityDashboardPage() {
           <aside
             style={{
               ...styles.sidebar,
+              borderColor: secondary,
+              transition: "border-color 450ms ease-in-out, opacity 400ms ease",
               padding: isMobile ? "18px 14px" : isTablet ? "20px 16px 16px" : styles.sidebar.padding,
             }}
           >
             {/* Section 1: Entity Name, Branch Name, Entity Logo */}
             <div style={styles.sidebarSection}>
               <div style={styles.entityTitleBlock}>
-                <h1 style={styles.entityTitle}>{entityName}</h1>
+                <h1 style={{ ...styles.entityTitle, color: primary, transition: "color 450ms ease-in-out" }}>{entityName}</h1>
                 <p style={styles.entitySubtitle}>{branchName}</p>
               </div>
 
-              <div style={styles.brandImageWrap}>
-                {logoUrl ? (
-                  <img src={logoUrl} alt="Entity logo" style={styles.brandImage} />
+              <div style={{ ...styles.brandImageWrap, borderColor: secondary, transition: "border-color 450ms ease-in-out" }}>
+                {displayLogoUrl ? (
+                  <img
+                    src={displayLogoUrl}
+                    alt="Entity logo"
+                    style={{
+                      ...styles.brandImage,
+                      opacity: fadeIn ? 1 : 0,
+                      transition: "opacity 400ms ease-in-out",
+                    }}
+                  />
                 ) : (
-                  <div style={styles.brandFallback}>
+                  <div style={{ ...styles.brandFallback, color: primary }}>
                     <BuildingIcon />
                   </div>
                 )}
               </div>
             </div>
 
-            <div style={styles.separator} />
+            <div style={{ ...styles.separator, borderTopColor: secondary, transition: "border-color 450ms ease-in-out" }} />
 
             {/* Section 2: Operator Photo */}
             <div style={styles.sidebarSection}>
-              <div style={styles.operatorImageWrap}>
+              <div style={{ ...styles.operatorImageWrap, borderColor: secondary, transition: "border-color 450ms ease-in-out" }}>
                 <img src={operatorPhotoUrl} alt="Operator" style={styles.operatorImage} />
               </div>
             </div>
 
-            <div style={styles.separator} />
+            <div style={{ ...styles.separator, borderTopColor: secondary, transition: "border-color 450ms ease-in-out" }} />
 
             {/* Section 3: DID QR Code */}
             <div style={styles.sidebarSection}>
-              <div style={styles.qrFrame}>
+              <div style={{ ...styles.qrFrame, borderColor: secondary, transition: "border-color 450ms ease-in-out" }}>
                 {qrImageUrl ? (
                   <img src={qrImageUrl} alt="Entity QR Code" style={styles.qrImage} />
                 ) : (
-                  <div style={styles.qrEmpty}>QR Not Assigned</div>
+                  <div style={{ ...styles.qrEmpty, color: primary }}>QR Not Assigned</div>
                 )}
               </div>
             </div>
 
-            <div style={styles.separator} />
+            <div style={{ ...styles.separator, borderTopColor: secondary, transition: "border-color 450ms ease-in-out" }} />
 
             {/* Logout Button */}
             <button
               style={{
                 ...styles.logoutBtn,
-                ...(logoutHover ? styles.logoutBtnHover : {}),
+                borderColor: secondary,
+                color: primary,
+                transition: "background 200ms ease, color 200ms ease, border-color 450ms ease-in-out",
+                ...(logoutHover ? { background: secondary, borderColor: secondary, color: "#ffffff" } : {}),
               }}
               onMouseEnter={() => setLogoutHover(true)}
               onMouseLeave={() => setLogoutHover(false)}
@@ -260,17 +290,19 @@ export function EntityDashboardPage() {
                   }}
                 >
                   <div style={styles.sectionTitleWrap}>
-                    <FolderOutlineIcon />
+                    <FolderOutlineIcon color={primary} />
                     <h2
                       style={{
                         ...styles.sectionTitle,
+                        color: primary,
                         fontSize: isMobile ? "16px" : isLaptop ? "17px" : styles.sectionTitle.fontSize,
+                        transition: "color 450ms ease-in-out",
                       }}
                     >
                       {section.title}
                     </h2>
                   </div>
-                  <button onClick={() => navigate("/entity/forms")} style={styles.addFolderBtn}>
+                  <button onClick={() => navigate("/entity/forms")} style={{ ...styles.addFolderBtn, color: primary, transition: "color 450ms ease-in-out" }}>
                     + Add folder
                   </button>
                 </div>
@@ -302,16 +334,28 @@ export function EntityDashboardPage() {
                           state={{ formId: item.id }}
                           style={{
                             ...styles.folderCard,
+                            borderColor: secondary,
                             minHeight: isMobile ? "180px" : isLaptop ? "220px" : styles.folderCard.minHeight,
                             padding: isMobile ? "16px" : isLaptop ? "18px" : styles.folderCard.padding,
-                            ...(itemIndex === 0 && sectionIndex > 0 ? styles.folderCardHighlight : {}),
+                            transition: "transform 200ms ease, box-shadow 200ms ease, border-color 450ms ease-in-out",
+                            ...(itemIndex === 0 && sectionIndex > 0 ? { borderColor: accent, background: `${accent}12` } : {}),
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = primary;
+                            e.currentTarget.style.boxShadow = `0 8px 24px ${primary}25`;
+                            e.currentTarget.style.transform = "scale(1.02) translateY(-2px)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = itemIndex === 0 && sectionIndex > 0 ? accent : secondary;
+                            e.currentTarget.style.boxShadow = styles.folderCard.boxShadow;
+                            e.currentTarget.style.transform = "scale(1) translateY(0)";
                           }}
                         >
                           <div style={styles.folderCardTop}>
-                            <div style={styles.folderBadge}>
+                            <div style={{ ...styles.folderBadge, background: primary, transition: "background-color 450ms ease-in-out" }}>
                               <FolderFilledIcon />
                             </div>
-                            <span style={styles.folderCount}>{String(item.count).padStart(2, "0")}</span>
+                            <span style={{ ...styles.folderCount, color: accent }}>{String(item.count).padStart(2, "0")}</span>
                             <span style={styles.folderMenu}>⋮</span>
                           </div>
                           <div
@@ -325,6 +369,7 @@ export function EntityDashboardPage() {
                                 key={`${item.id}-${index}`}
                                 style={{
                                   ...styles.folderLetter,
+                                  color: accent,
                                   fontSize: isMobile ? "15px" : isLaptop ? "16px" : styles.folderLetter.fontSize,
                                 }}
                               >
@@ -352,7 +397,7 @@ const styles = {
   container: {
     minHeight: "100vh",
     background: "#FFFFFF",
-    borderTop: "8px solid #11a7b3",
+    borderTop: "8px solid var(--primary-color)",
     width: "100%",
     maxWidth: "100%",
     overflowX: "hidden",
@@ -381,7 +426,7 @@ const styles = {
     boxSizing: "border-box",
     background: "#fff",
     borderRadius: 0,
-    border: "1px solid #2FBF9B",
+    border: "1px solid var(--secondary-color)",
     padding: "20px 16px",
   },
   sidebarSection: {
@@ -397,7 +442,7 @@ const styles = {
   },
   entityTitle: {
     margin: 0,
-    color: "#0F6E56",
+    color: "var(--primary-color)",
     fontSize: "18px",
     fontWeight: 700,
     lineHeight: 1.2,
@@ -412,10 +457,10 @@ const styles = {
     width: "190px",
     height: "190px",
     margin: "0 auto",
-    border: "1px solid #22D3EE",
+    border: "1px solid var(--secondary-color)",
     borderRadius: 0,
     overflow: "hidden",
-    background: "#EAFBF7",
+    background: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -428,14 +473,14 @@ const styles = {
   brandFallback: {
     width: "100%",
     height: "100%",
-    background: "#EAFBF7",
-    color: "#0F6E56",
+    background: "#ffffff",
+    color: "var(--primary-color)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
   separator: {
-    borderTop: "1px solid #2FBF9B",
+    borderTop: "1px solid var(--secondary-color)",
     margin: "18px 0",
     width: "100%",
   },
@@ -443,7 +488,7 @@ const styles = {
     width: "180px",
     height: "180px",
     margin: "0 auto",
-    border: "1px solid #22D3EE",
+    border: "1px solid var(--secondary-color)",
     borderRadius: 0,
     overflow: "hidden",
     background: "#fff",
@@ -457,7 +502,7 @@ const styles = {
     width: "190px",
     height: "190px",
     margin: "0 auto",
-    border: "1px solid #22D3EE",
+    border: "1px solid var(--secondary-color)",
     borderRadius: 0,
     display: "flex",
     alignItems: "center",
@@ -471,7 +516,7 @@ const styles = {
     padding: "8px",
   },
   qrEmpty: {
-    color: "#0F6E56",
+    color: "var(--primary-color)",
     fontSize: "14px",
     textAlign: "center",
     padding: "1rem",
@@ -479,17 +524,17 @@ const styles = {
   logoutBtn: {
     width: "100%",
     padding: "12px 16px",
-    border: "1px solid #2FBF9B",
+    border: "1px solid var(--secondary-color)",
     borderRadius: 0,
     background: "#fff",
-    color: "#0F6E56",
+    color: "var(--primary-color)",
     cursor: "pointer",
     fontSize: "15px",
     fontWeight: 600,
     transition: "background 180ms ease, color 180ms ease",
   },
   logoutBtnHover: {
-    background: "#2FBF9B",
+    background: "var(--secondary-color)",
     color: "#fff",
   },
   workspace: {
@@ -499,9 +544,9 @@ const styles = {
     boxSizing: "border-box",
     background: "#fff",
     borderRadius: "16px",
-    border: "1px solid #b7edf1",
+    border: "1px solid var(--secondary-color)",
     padding: "6px 10px 0",
-    boxShadow: "0 4px 20px rgba(14, 165, 177, 0.06)",
+    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.04)",
   },
   workspaceSection: {
     marginBottom: "10px",
@@ -519,20 +564,20 @@ const styles = {
   },
   sectionTitle: {
     margin: 0,
-    color: "#16233d",
+    color: "var(--primary-color)",
     fontSize: "18px",
     fontWeight: 500,
   },
   addFolderBtn: {
     background: "transparent",
     border: "none",
-    color: "#10a7b4",
+    color: "var(--primary-color)",
     fontSize: "17px",
     cursor: "pointer",
     padding: 0,
   },
   sectionBody: {
-    border: "1px solid #bfeef2",
+    border: "1px solid var(--secondary-color)",
     borderRadius: "12px",
     padding: "26px 30px 24px",
     width: "100%",
@@ -551,7 +596,7 @@ const styles = {
   },
   folderCard: {
     minHeight: "210px",
-    border: "1px solid #aee9ee",
+    border: "1px solid var(--secondary-color)",
     borderRadius: "12px",
     padding: "20px 22px",
     background: "#fff",
@@ -559,13 +604,14 @@ const styles = {
     color: "#13213d",
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 3px 10px rgba(13, 167, 179, 0.05)",
+    boxShadow: "0 3px 10px rgba(0, 0, 0, 0.04)",
     minWidth: 0,
     width: "100%",
     boxSizing: "border-box",
+    transition: "transform 200ms ease, box-shadow 200ms ease, border-color 450ms ease",
   },
   folderCardHighlight: {
-    background: "linear-gradient(180deg, rgba(210,248,250,0.95), rgba(234,251,252,0.92))",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.95), rgba(245,245,245,0.92))",
   },
   folderCardTop: {
     display: "flex",
@@ -577,7 +623,7 @@ const styles = {
     width: "40px",
     height: "40px",
     borderRadius: "50%",
-    background: "#12aab7",
+    background: "var(--primary-color)",
     color: "#fff",
     display: "flex",
     alignItems: "center",
@@ -589,6 +635,7 @@ const styles = {
     marginRight: "auto",
     fontSize: "19px",
     fontWeight: 500,
+    color: "var(--accent-color)",
   },
   folderMenu: {
     color: "#15233d",
@@ -679,11 +726,11 @@ function BuildingIcon({ small = false }) {
   );
 }
 
-function FolderOutlineIcon() {
+function FolderOutlineIcon({ color = "#10a7b4" }) {
   return (
     <svg width="28" height="24" viewBox="0 0 28 24" fill="none" aria-hidden="true">
-      <path d="M2 7.5h8l2.5-3H26v3" stroke="#10a7b4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M2 7.5h24v11.8a2.2 2.2 0 0 1-2.2 2.2H4.2A2.2 2.2 0 0 1 2 19.3V7.5Z" stroke="#10a7b4" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M2 7.5h8l2.5-3H26v3" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 7.5h24v11.8a2.2 2.2 0 0 1-2.2 2.2H4.2A2.2 2.2 0 0 1 2 19.3V7.5Z" stroke={color} strokeWidth="2.2" strokeLinejoin="round" />
     </svg>
   );
 }

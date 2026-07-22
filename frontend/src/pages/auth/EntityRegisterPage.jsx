@@ -29,6 +29,7 @@ export function EntityRegisterPage() {
 
   const [formData, setFormData] = useState({
     name: "",
+    entityName: "",
     branchName: "",
     phone: "",
     email: "",
@@ -36,6 +37,7 @@ export function EntityRegisterPage() {
     gstDoc: null,
     address: "",
     addressProof: null,
+    entityLogo: null,
     operatorPhoto: null,
     location: "",
     locationLat: "",
@@ -196,6 +198,18 @@ export function EntityRegisterPage() {
         previewUrl,
       });
     }
+    if (formData.entityLogo instanceof File) {
+      const previewUrl = URL.createObjectURL(formData.entityLogo);
+      registerObjectUrl(previewUrl);
+      documents.push({
+        field: "entityLogo",
+        file: formData.entityLogo,
+        name: formData.entityLogo.name,
+        type: formData.entityLogo.type,
+        size: formData.entityLogo.size,
+        previewUrl,
+      });
+    }
     if (formData.operatorPhoto instanceof File) {
       const previewUrl = URL.createObjectURL(formData.operatorPhoto);
       registerObjectUrl(previewUrl);
@@ -213,6 +227,7 @@ export function EntityRegisterPage() {
     setDocuments(documents);
     setDraftFormData({
       name: formData.name,
+      entityName: formData.entityName,
       branchName: formData.branchName,
       phone: formData.phone,
       email: formData.email,
@@ -235,7 +250,7 @@ export function EntityRegisterPage() {
 
         <div style={styles.form}>
           <div className="did-grid">
-            {/* Row 1: Entity Name | Branch Name | Phone Number | GST Number */}
+            {/* Row 1: Entity Name | Display Name | Branch Name | Phone Number */}
             <div className={`did-cell${formData.name ? " has-value" : ""}`}>
               <span className="did-float-label">ENTITY NAME *</span>
               <input
@@ -245,6 +260,16 @@ export function EntityRegisterPage() {
                 style={styles.gridInput}
                 placeholder=" "
                 required
+              />
+            </div>
+            <div className={`did-cell${formData.entityName ? " has-value" : ""}`}>
+              <span className="did-float-label">DISPLAY NAME</span>
+              <input
+                type="text"
+                value={formData.entityName}
+                onChange={(e) => handleChange("entityName", e.target.value)}
+                style={styles.gridInput}
+                placeholder=" "
               />
             </div>
             <div className={`did-cell${formData.branchName ? " has-value" : ""}`}>
@@ -269,6 +294,8 @@ export function EntityRegisterPage() {
                 required
               />
             </div>
+
+            {/* Row 2: GST Number | Address | Email | GST Certificate */}
             <div className={`did-cell${formData.gstNo ? " has-value" : ""}`}>
               <span className="did-float-label">GST NUMBER *</span>
               <input
@@ -280,8 +307,6 @@ export function EntityRegisterPage() {
                 required
               />
             </div>
-
-            {/* Row 2: Address | Email | GST Certificate | Address Proof */}
             <div className={`did-cell${formData.address ? " has-value" : ""}`}>
               <span className="did-float-label">ADDRESS *</span>
               <input
@@ -321,24 +346,24 @@ export function EntityRegisterPage() {
               />
             </label>
 
-            {/* Address Proof Upload Card */}
+            {/* Row 3: Entity Logo | Operator Photo | Google Map | Address Proof */}
+            {/* Entity Logo Upload Card */}
             <label
-              className={`did-upload${formData.addressProof ? " is-selected" : ""}`}
-              onContextMenu={(e) => formData.addressProof && handleFileContextMenu("addressProof", e)}
-              onDoubleClick={() => formData.addressProof && handleFileDoubleClick("addressProof")}
+              className={`did-upload${formData.entityLogo ? " is-selected" : ""}`}
+              onContextMenu={(e) => formData.entityLogo && handleFileContextMenu("entityLogo", e)}
+              onDoubleClick={() => formData.entityLogo && handleFileDoubleClick("entityLogo")}
             >
               <div className="did-upload-text">
-                {formData.addressProof ? formData.addressProof.name : "ADDRESS PROOF *"}
+                {formData.entityLogo ? formData.entityLogo.name : "ENTITY LOGO (Optional)"}
               </div>
               <input
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                onChange={(e) => handleFileChange("addressProof", e)}
+                accept=".jpg,.jpeg,.png,.webp,.svg"
+                onChange={(e) => handleFileChange("entityLogo", e)}
                 style={styles.hiddenInput}
               />
             </label>
 
-            {/* Row 3: Operator Photo | Google Map | Empty | Empty */}
             {/* Operator Photo Upload Card */}
             <label
               className={`did-upload${formData.operatorPhoto ? " is-selected" : ""}`}
@@ -375,9 +400,22 @@ export function EntityRegisterPage() {
               </div>
             </div>
 
-            {/* Desktop spacer cells to keep Row 3 clean: [Operator Photo] [Google Map] [Empty] [Empty] */}
-            <div className="did-grid-empty-cell" />
-            <div className="did-grid-empty-cell" />
+            {/* Address Proof Upload Card */}
+            <label
+              className={`did-upload${formData.addressProof ? " is-selected" : ""}`}
+              onContextMenu={(e) => formData.addressProof && handleFileContextMenu("addressProof", e)}
+              onDoubleClick={() => formData.addressProof && handleFileDoubleClick("addressProof")}
+            >
+              <div className="did-upload-text">
+                {formData.addressProof ? formData.addressProof.name : "ADDRESS PROOF *"}
+              </div>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => handleFileChange("addressProof", e)}
+                style={styles.hiddenInput}
+              />
+            </label>
           </div>
 
           <div style={styles.otpSection}>
@@ -418,6 +456,7 @@ export function EntityRegisterPage() {
             <h4 style={styles.summaryTitle}>Registration Summary</h4>
             <div style={styles.summaryGrid}>
               <div><strong>Entity Name:</strong> {formData.name || "—"}</div>
+              <div><strong>Display Name:</strong> {formData.entityName || "—"}</div>
               <div><strong>Branch:</strong> {formData.branchName || "—"}</div>
               <div><strong>GST:</strong> {formData.gstNo || "—"}</div>
               <div><strong>Phone:</strong> {formData.phone || "—"}</div>

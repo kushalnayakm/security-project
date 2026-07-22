@@ -16,6 +16,7 @@ function isPdf(mimeType) {
 function getDocDisplayName(doc) {
   if (doc.field === "gstDoc") return "GST Certificate";
   if (doc.field === "addressProof") return "Address Proof";
+  if (doc.field === "entityLogo") return "Entity Logo";
   if (doc.field === "operatorPhoto") return "Operator Photo";
   return doc.name || "Document";
 }
@@ -84,10 +85,12 @@ export function DocumentPreviewPage() {
       // POST /entity/register (or updateProfile) endpoint's Form(...)/File(...)
       // parameter names before relying on this — see conversation notes.
       payload.append("name", formData.name || "");
+      payload.append("entityName", formData.entityName || formData.name || "");
       payload.append("branchName", formData.branchName || "");
       payload.append("phone", formData.phone || "");
       payload.append("gstNo", formData.gstNo || "");
       payload.append("address", formData.address || "");
+      payload.append("email", formData.email || "");
       payload.append("location", formData.location || "");
       payload.append("locationLat", formData.locationLat || "");
       payload.append("locationLng", formData.locationLng || "");
@@ -101,6 +104,8 @@ export function DocumentPreviewPage() {
             payload.append("gstDoc", doc.file);
           } else if (doc.field === "addressProof") {
             payload.append("addressProof", doc.file);
+          } else if (doc.field === "entityLogo") {
+            payload.append("entityLogo", doc.file);
           } else if (doc.field === "operatorPhoto") {
             payload.append("operatorPhoto", doc.file);
           }

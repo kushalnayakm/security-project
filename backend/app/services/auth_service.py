@@ -385,8 +385,11 @@ class AuthService:
             await session.flush()
             logger.info("User created")
 
+            # Use entityName if provided, otherwise fall back to name
+            entity_display_name = payload.get("entityName") or payload.get("name")
             entity = Entity(
-                name=payload.get("name"),
+                name=entity_display_name,
+                branch_name=payload.get("branchName") or payload.get("branch_name"),
                 parent_entity_id=None,
                 entity_type="MAIN",
                 gst_no=gst_no,
@@ -427,8 +430,10 @@ class AuthService:
             entity_data = {
                 "entity_id": str(entity.entity_id),
                 "name": entity.name,
+                "branch_name": entity.branch_name,
                 "gst_no": entity.gst_no,
-                "phone": entity.phone
+                "phone": entity.phone,
+                "email": entity.email,
             }
             return {
                 "entity_id": str(entity.entity_id),
