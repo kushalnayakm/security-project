@@ -13,6 +13,7 @@ class EntityCreate(BaseModel):
     branchName: str | None = Field(default=None, validation_alias=AliasChoices("branchName", "branch_name"), serialization_alias="branchName")
     gstNo: str | None = Field(default=None, validation_alias=AliasChoices("gstNo", "gst_no"), serialization_alias="gstNo")
     gstDocUrl: str | None = Field(default=None, validation_alias=AliasChoices("gstDocUrl", "gst_doc_url"), serialization_alias="gstDocUrl")
+    entityLicenceUrl: str | None = Field(default=None, validation_alias=AliasChoices("entityLicenceUrl", "entity_licence_url"), serialization_alias="entityLicenceUrl")
     businessType: str | None = Field(default=None, validation_alias=AliasChoices("businessType", "business_type"), serialization_alias="businessType")
     address: str | None = None
     location: str | None = None
@@ -39,6 +40,7 @@ class EntityRegisterRequest(BaseModel):
     branchName: str | None = Field(default=None, validation_alias=AliasChoices("branchName", "branch_name"), serialization_alias="branchName")
     gstNo: str = Field(validation_alias=AliasChoices("gstNo", "gst_no"), serialization_alias="gstNo")
     gstDocUrl: str | None = Field(default=None, validation_alias=AliasChoices("gstDocUrl", "gst_doc_url"), serialization_alias="gstDocUrl")
+    entityLicenceUrl: str | None = Field(default=None, validation_alias=AliasChoices("entityLicenceUrl", "entity_licence_url"), serialization_alias="entityLicenceUrl")
     businessType: str | None = Field(default=None, validation_alias=AliasChoices("businessType", "business_type"), serialization_alias="businessType")
     address: str | None = None
     location: str | None = None
@@ -76,6 +78,7 @@ class EntityUpdate(BaseModel):
     branchName: str | None = None
     gstNo: str | None = None
     gstDocUrl: str | None = Field(default=None, validation_alias=AliasChoices("gstDocUrl", "gst_doc_url"), serialization_alias="gstDocUrl")
+    entityLicenceUrl: str | None = Field(default=None, validation_alias=AliasChoices("entityLicenceUrl", "entity_licence_url"), serialization_alias="entityLicenceUrl")
     businessType: str | None = None
     address: str | None = None
     location: str | None = None
@@ -99,6 +102,7 @@ class EntityRead(ORMModel):
     name: str
     gst_no: str | None
     gst_doc_url: str | None = None
+    entity_licence_url: str | None = None
     business_type: str | None
     address: str | None
     location: str | None = None

@@ -52,6 +52,7 @@ async def register_entity(
     name: str = Form(...),
     gstNo: str = Form(...),
     gstDoc: UploadFile | None = File(None),
+    entityLicence: UploadFile | None = File(None),
     addressProof: UploadFile | None = File(None),
     businessType: str | None = Form(None),
     address: str | None = Form(None),
@@ -91,6 +92,16 @@ async def register_entity(
         gst_doc_original = gstDoc.filename
         gst_doc_size = gstDoc.size
         gst_doc_mime = gstDoc.content_type
+
+    entity_licence_file = entityLicence
+    entity_licence_path = None
+    entity_licence_original = None
+    entity_licence_size = None
+    entity_licence_mime = None
+    if entityLicence:
+        entity_licence_original = entityLicence.filename
+        entity_licence_size = entityLicence.size
+        entity_licence_mime = entityLicence.content_type
         
     address_proof_file = addressProof
     address_proof_path = None
@@ -137,6 +148,7 @@ async def register_entity(
         name=name,
         gstNo=gstNo,
         gstDocUrl=gst_doc_path,
+        entityLicenceUrl=entity_licence_path,
         businessType=businessType,
         address=address,
         contactPerson=contactPerson,
@@ -159,6 +171,7 @@ async def register_entity(
         "entityName": entityName,
         "branchName": branchName,
         "entityLogoUrl": entity_logo_path,
+        "entityLicenceUrl": entity_licence_path,
         "operatorPhotoUrl": operator_photo_path,
         "userDocumentUrl": user_document_path,
         "location": location,
@@ -188,6 +201,20 @@ async def register_entity(
             await save_document_record(
                 session, entity_id, user_id, "gst_document",
                 gst_doc_path, gst_doc_original, gst_doc_size, gst_doc_mime
+            )
+        if entity_licence_file:
+            entity_licence_path, entity_licence_original, entity_licence_size, entity_licence_mime = await save_entity_document(
+                entity_licence_file,
+                entity_id=entity_id,
+                document_label="entity_licence",
+            )
+            payload_dict["entityLicenceUrl"] = entity_licence_path
+            await session.execute(
+                Entity.__table__.update().where(Entity.entity_id == entity_id).values(entity_licence_url=entity_licence_path)
+            )
+            await save_document_record(
+                session, entity_id, user_id, "entity_licence",
+                entity_licence_path, entity_licence_original, entity_licence_size, entity_licence_mime
             )
         if address_proof_file:
             address_proof_path, address_proof_original, address_proof_size, address_proof_mime = await save_entity_document(
@@ -445,6 +472,9 @@ async def get_entity_profile(
     gst_doc = await session.scalar(
         select(Document).where(Document.entity_id == target_entity_id, Document.document_type == "gst_document")
     )
+    entity_licence = await session.scalar(
+        select(Document).where(Document.entity_id == target_entity_id, Document.document_type == "entity_licence")
+    )
     address_proof = await session.scalar(
         select(Document).where(Document.entity_id == target_entity_id, Document.document_type == "address_proof")
     )
@@ -488,6 +518,7 @@ async def get_entity_profile(
         "location_lng": entity.location_lng,
         "status": entity.status,
         "gst_doc_url": gst_doc.file_path if gst_doc else entity.gst_doc_url,
+        "entity_licence_url": entity_licence.file_path if entity_licence else entity.entity_licence_url,
         "address_proof_url": address_proof.file_path if address_proof else None,
         "logo_url": logo_url,
         "operator_photo": operator_photo,

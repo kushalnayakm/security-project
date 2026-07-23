@@ -22,6 +22,7 @@ class Entity(Base):
     branch_name: Mapped[str | None] = mapped_column(String(100))
     gst_no: Mapped[str | None] = mapped_column(String(50), unique=True)
     gst_doc_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    entity_licence_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     business_type: Mapped[str | None] = mapped_column(String(100))
     address: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(Text)

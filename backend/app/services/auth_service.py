@@ -394,6 +394,7 @@ class AuthService:
                 entity_type="MAIN",
                 gst_no=gst_no,
                 gst_doc_url=payload.get("gstDocUrl"),
+                entity_licence_url=payload.get("entityLicenceUrl"),
                 business_type=payload.get("businessType"),
                 address=payload.get("address"),
                 location=payload.get("location"),

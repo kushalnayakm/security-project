@@ -27,6 +27,7 @@ CREATE TABLE entities (
     branch_name     VARCHAR(100),
     gst_no          VARCHAR(50) UNIQUE,
     gst_doc_url     TEXT,
+    entity_licence_url TEXT,
     business_type   VARCHAR(100),
     address         TEXT,
     location        TEXT,
